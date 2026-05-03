@@ -29,6 +29,10 @@ pub enum FarolError {
     #[error("project already exists at `{path}`")]
     #[diagnostic(code(farol::scaffold::exists))]
     ScaffoldExists { path: PathBuf },
+
+    #[error("cache error: {message}")]
+    #[diagnostic(code(farol::cache))]
+    Cache { message: String },
 }
 
 pub type Result<T> = std::result::Result<T, FarolError>;

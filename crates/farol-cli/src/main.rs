@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use farol_core::{build, scaffold, Config, DEFAULT_CONFIG_FILENAME};
+use farol_core::{build, scaffold, BuildOptions, Cache, Config, DEFAULT_CONFIG_FILENAME};
 use tracing_subscriber::EnvFilter;
 
 const BANNER: &str = r#"
@@ -47,13 +47,25 @@ enum Commands {
         path: PathBuf,
     },
     /// Build the site.
-    Build,
+    Build {
+        /// Print per-node timing and cache hit rate.
+        #[arg(long)]
+        timings: bool,
+        /// Skip the build cache entirely.
+        #[arg(long)]
+        no_cache: bool,
+    },
     /// Serve the site with live reload.
     Serve,
     /// Work with plugins.
     Plugin {
         #[command(subcommand)]
         cmd: PluginCommand,
+    },
+    /// Inspect or clear the build cache.
+    Cache {
+        #[command(subcommand)]
+        cmd: CacheCommand,
     },
 }
 
@@ -64,6 +76,12 @@ enum PluginCommand {
         /// Plugin name (without the `farol-plugin-` prefix).
         name: String,
     },
+}
+
+#[derive(Subcommand)]
+enum CacheCommand {
+    /// Remove every cached entry. Next build will be cold.
+    Clear,
 }
 
 fn main() -> miette::Result<()> {
@@ -78,7 +96,9 @@ fn main() -> miette::Result<()> {
             Ok(())
         }
         Some(Commands::New { path }) => cmd_new(&path),
-        Some(Commands::Build) => cmd_build(cli.config.as_deref()),
+        Some(Commands::Build { timings, no_cache }) => {
+            cmd_build(cli.config.as_deref(), timings, no_cache)
+        }
         Some(Commands::Serve) => {
             println!("farol serve: not implemented yet");
             Ok(())
@@ -86,6 +106,9 @@ fn main() -> miette::Result<()> {
         Some(Commands::Plugin { cmd: PluginCommand::New { name } }) => {
             println!("farol plugin new {name}: not implemented yet");
             Ok(())
+        }
+        Some(Commands::Cache { cmd: CacheCommand::Clear }) => {
+            cmd_cache_clear(cli.config.as_deref())
         }
     }
 }
@@ -99,7 +122,11 @@ fn cmd_new(path: &std::path::Path) -> miette::Result<()> {
     Ok(())
 }
 
-fn cmd_build(config_path: Option<&std::path::Path>) -> miette::Result<()> {
+fn cmd_build(
+    config_path: Option<&std::path::Path>,
+    timings: bool,
+    no_cache: bool,
+) -> miette::Result<()> {
     let config_path = config_path
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILENAME));
@@ -120,7 +147,8 @@ fn cmd_build(config_path: Option<&std::path::Path>) -> miette::Result<()> {
     println!("site_dir:  {}", config.site_dir.display());
     println!("theme:     {}", config.theme.name);
 
-    let report = build::build(&config, &project_root)?;
+    let opts = BuildOptions { timings, no_cache, cache_path: None };
+    let report = build::build_with(&config, &project_root, &opts)?;
 
     println!();
     println!("built {} pages, {} assets", report.pages, report.assets);
@@ -131,6 +159,44 @@ fn cmd_build(config_path: Option<&std::path::Path>) -> miette::Result<()> {
         }
     }
 
+    if let Some(graph) = &report.graph {
+        println!();
+        println!(
+            "graph: {} nodes in {:.0?} ({} hit, {} miss, {:.0}% hit rate)",
+            graph.total_nodes(),
+            graph.total_elapsed,
+            graph.cache_hits,
+            graph.cache_misses,
+            graph.hit_rate() * 100.0,
+        );
+        for t in &graph.timings {
+            let tag = match t.outcome {
+                farol_core::NodeOutcome::Hit => "HIT ",
+                farol_core::NodeOutcome::Miss => "MISS",
+            };
+            println!("  {tag}  {:>8.2?}  {}", t.elapsed, t.id);
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_cache_clear(config_path: Option<&std::path::Path>) -> miette::Result<()> {
+    let config_path = config_path
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILENAME));
+    let project_root =
+        config_path.parent().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let cache_path = project_root.join(".farol").join("cache.redb");
+
+    if !cache_path.exists() {
+        println!("no cache at {} (nothing to clear)", cache_path.display());
+        return Ok(());
+    }
+
+    let cache = Cache::open(&cache_path)?;
+    cache.clear()?;
+    println!("cleared cache at {}", cache_path.display());
     Ok(())
 }
 
