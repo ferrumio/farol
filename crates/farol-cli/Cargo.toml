@@ -18,3 +18,7 @@ clap               = { workspace = true }
 miette             = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
+tokio              = { workspace = true }
+axum               = { workspace = true }
+notify             = { workspace = true }
+futures-util       = { workspace = true }
