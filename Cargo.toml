@@ -25,12 +25,15 @@ readme       = "README.md"
 [workspace.dependencies]
 farol-core = { path = "crates/farol-core", version = "0.0.0" }
 
-clap      = { version = "4", features = ["derive"] }
-serde     = { version = "1", features = ["derive"] }
-thiserror = "1"
-miette    = { version = "7", features = ["fancy"] }
-tracing   = "0.1"
-toml      = "0.8"
+clap             = { version = "4", features = ["derive"] }
+serde            = { version = "1", features = ["derive"] }
+serde_yaml       = "0.9"
+thiserror        = "1"
+miette           = { version = "7", features = ["fancy"] }
+tracing          = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+toml             = "0.8"
+ignore           = "0.4"
 
 [profile.release]
 lto           = "thin"

@@ -13,7 +13,8 @@ name = "farol"
 path = "src/main.rs"
 
 [dependencies]
-farol-core = { workspace = true }
-clap       = { workspace = true }
-miette     = { workspace = true }
-tracing    = { workspace = true }
+farol-core         = { workspace = true }
+clap               = { workspace = true }
+miette             = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
