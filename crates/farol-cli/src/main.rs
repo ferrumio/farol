@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use farol_core::{files, scaffold, Config, FarolError, DEFAULT_CONFIG_FILENAME};
+use farol_core::{build, scaffold, Config, DEFAULT_CONFIG_FILENAME};
 use tracing_subscriber::EnvFilter;
 
 const BANNER: &str = r#"
@@ -104,6 +104,9 @@ fn cmd_build(config_path: Option<&std::path::Path>) -> miette::Result<()> {
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILENAME));
 
+    let project_root =
+        config_path.parent().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+
     let config = if config_path.exists() {
         Config::load(&config_path)?
     } else {
@@ -111,33 +114,21 @@ fn cmd_build(config_path: Option<&std::path::Path>) -> miette::Result<()> {
         Config::default()
     };
 
-    let tree = files::walk(&config.docs_dir).map_err(|e| match e {
-        FarolError::Io { path, source } if source.kind() == std::io::ErrorKind::NotFound => {
-            FarolError::Io {
-                path,
-                source: std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "docs directory not found - create it or set docs_dir in farol.toml",
-                ),
-            }
-        }
-        other => other,
-    })?;
-
     println!("site:      {}", config.site_name);
     println!("config:    {}", config_path.display());
     println!("docs_dir:  {}", config.docs_dir.display());
     println!("site_dir:  {}", config.site_dir.display());
     println!("theme:     {}", config.theme.name);
-    println!(
-        "files:     {} ({} markdown, {} assets)",
-        tree.len(),
-        tree.markdown().count(),
-        tree.assets().count()
-    );
 
-    for file in tree.markdown() {
-        println!("  - {}", file.relative.display());
+    let report = build::build(&config, &project_root)?;
+
+    println!();
+    println!("built {} pages, {} assets", report.pages, report.assets);
+    if !report.broken_links.is_empty() {
+        println!("warning: {} broken link(s):", report.broken_links.len());
+        for b in &report.broken_links {
+            println!("  {} -> {} ({})", b.page.display(), b.href, b.reason);
+        }
     }
 
     Ok(())
