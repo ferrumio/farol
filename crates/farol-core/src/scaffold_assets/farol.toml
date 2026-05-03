@@ -1,0 +1,11 @@
+# Minimal farol configuration.
+# See https://github.com/ferrumio/farol for the full reference.
+
+site_name = "My Docs"
+
+[theme]
+name = "default"
+
+[plugins]
+enabled  = ["search", "sitemap", "admonitions", "code-copy"]
+disabled = []
