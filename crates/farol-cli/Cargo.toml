@@ -8,6 +8,10 @@ license      = { workspace = true }
 repository   = { workspace = true }
 description  = "Command-line interface for farol."
 
+[lib]
+name = "farol_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "farol"
 path = "src/main.rs"

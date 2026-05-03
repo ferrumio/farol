@@ -16,7 +16,7 @@ use axum::{
     routing::get,
     Router,
 };
-use farol_core::{build, BuildOptions, Config};
+use farol_core::{build, BuildOptions, Config, PluginHost};
 use futures_util::stream::StreamExt;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::{
@@ -32,7 +32,8 @@ pub async fn run(
     config: Config,
     project_root: PathBuf,
     port: u16,
-    host: String,
+    bind: String,
+    host: Arc<dyn PluginHost>,
 ) -> miette::Result<()> {
     let site_dir = project_root.join(&config.site_dir);
 
@@ -41,12 +42,12 @@ pub async fn run(
     let last_error: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 
     // Initial build so the site exists before requests arrive.
-    if let Err(e) = do_build(&config, &project_root, &last_error).await {
+    if let Err(e) = do_build(&config, &project_root, &last_error, host.clone()).await {
         tracing::warn!(error = %e, "initial build failed - server will show overlay");
     }
 
     // File watcher in its own blocking thread (notify callback is sync).
-    spawn_watcher(&project_root, &config, reload_tx.clone(), last_error.clone())?;
+    spawn_watcher(&project_root, &config, reload_tx.clone(), last_error.clone(), host.clone())?;
 
     // Router.
     let state = AppState { reload_tx: reload_tx.clone(), last_error: last_error.clone(), site_dir };
@@ -56,7 +57,7 @@ pub async fn run(
         .with_state(state);
 
     let addr: SocketAddr =
-        format!("{host}:{port}").parse().map_err(|e| miette::miette!("invalid host/port: {e}"))?;
+        format!("{bind}:{port}").parse().map_err(|e| miette::miette!("invalid host/port: {e}"))?;
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .map_err(|e| miette::miette!("bind {addr}: {e}"))?;
@@ -217,6 +218,7 @@ fn spawn_watcher(
     config: &Config,
     reload_tx: broadcast::Sender<()>,
     last_error: Arc<Mutex<Option<String>>>,
+    host: Arc<dyn PluginHost>,
 ) -> miette::Result<()> {
     let docs_dir = project_root.join(&config.docs_dir);
     let overrides_dir = project_root.join("overrides");
@@ -266,7 +268,7 @@ fn spawn_watcher(
             }
 
             let started = Instant::now();
-            let build_result = do_build(&config, &project_root, &last_error).await;
+            let build_result = do_build(&config, &project_root, &last_error, host.clone()).await;
             match build_result {
                 Ok(report) => {
                     println!(
@@ -292,14 +294,16 @@ async fn do_build(
     config: &Config,
     project_root: &Path,
     last_error: &Arc<Mutex<Option<String>>>,
+    host: Arc<dyn PluginHost>,
 ) -> miette::Result<farol_core::BuildReport> {
     let config = config.clone();
     let project_root = project_root.to_path_buf();
     let opts = BuildOptions { timings: true, ..BuildOptions::default() };
 
     // Run the (blocking, rayon-heavy) build off the async runtime.
-    let handle =
-        tokio::task::spawn_blocking(move || build::build_with(&config, &project_root, &opts));
+    let handle = tokio::task::spawn_blocking(move || {
+        build::build_with(&config, &project_root, &opts, host.as_ref())
+    });
     let result = handle.await.map_err(|e| miette::miette!("build join: {e}"))?;
 
     match result {
