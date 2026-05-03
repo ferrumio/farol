@@ -217,6 +217,89 @@ picture img { max-width: 100%; height: auto; border-radius: 4px; }
 .prev-next .next { text-align: right; align-items: flex-end; }
 .prev-next .disabled { visibility: hidden; }
 
+/* --- search button in header --- */
+.search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  color: var(--muted);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: 0.85rem system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+}
+.search-trigger:hover { color: var(--fg); }
+.search-trigger .kbd {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+/* --- search modal --- */
+.farol-search-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  padding-top: 8vh;
+  justify-content: center;
+}
+.farol-search-backdrop.open { display: flex; }
+.farol-search-modal {
+  width: min(640px, 90vw);
+  max-height: 70vh;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.farol-search-modal input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1rem 1.25rem;
+  font: 1rem system-ui, -apple-system, sans-serif;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  outline: none;
+}
+.farol-search-modal ul {
+  list-style: none;
+  padding: 0.5rem;
+  margin: 0;
+  overflow-y: auto;
+  max-height: 55vh;
+}
+.farol-search-modal li.result { border-radius: 6px; }
+.farol-search-modal li.result.active { background: var(--code-bg); }
+.farol-search-modal li.result a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.9rem;
+  text-decoration: none;
+  color: var(--fg);
+}
+.farol-search-modal li.result .title { font-weight: 500; }
+.farol-search-modal li.result .snippet { font-size: 0.85rem; color: var(--muted); }
+.farol-search-modal li.result mark {
+  background: rgba(91, 108, 255, 0.2);
+  color: var(--fg);
+  padding: 0 0.1em;
+  border-radius: 2px;
+}
+.farol-search-modal li.empty { padding: 1.25rem; color: var(--muted); text-align: center; }
+
 /* --- files group --- */
 .farol-files { margin: 1rem 0; }
 .farol-files .file-entry { margin: 0.75rem 0; }

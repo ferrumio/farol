@@ -27,6 +27,8 @@ bincode          = { workspace = true }
 rayon            = { workspace = true }
 syntect          = { workspace = true }
 two-face         = { workspace = true }
+tantivy          = { workspace = true }
+serde_json       = { workspace = true }
 image            = { workspace = true }
 base64           = { workspace = true }
 

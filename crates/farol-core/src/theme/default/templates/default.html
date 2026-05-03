@@ -6,6 +6,7 @@
   <title>{{ page.title }} - {{ config.site_name }}</title>
   <link rel="stylesheet" href="/assets/base.css">
   <script src="/assets/farol.js" defer></script>
+  <script src="/assets/search.js" defer></script>
   {% if config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
 </head>
 <body>
@@ -30,5 +31,6 @@
     {% endif %}
   </main>
   {% include "partials/footer.html" %}
+  {% include "partials/search.html" %}
 </body>
 </html>
