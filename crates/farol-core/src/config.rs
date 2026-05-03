@@ -64,6 +64,22 @@ pub struct PluginsConfig {
     pub disabled: Vec<String>,
 }
 
+impl PluginsConfig {
+    /// Decide whether a plugin identified by `name` should run.
+    ///
+    /// Rules:
+    /// - If `enabled` is non-empty, it is a whitelist: only plugins listed
+    ///   there run. `disabled` is ignored in this mode to avoid conflicting
+    ///   intent.
+    /// - If `enabled` is empty, every plugin runs except those in `disabled`.
+    pub fn is_plugin_enabled(&self, name: &str) -> bool {
+        if !self.enabled.is_empty() {
+            return self.enabled.iter().any(|n| n == name);
+        }
+        !self.disabled.iter().any(|n| n == name)
+    }
+}
+
 impl Default for ThemeConfig {
     fn default() -> Self {
         Self { name: default_theme_name(), palette: None, primary: None, accent: None }
@@ -197,5 +213,34 @@ disabled = ["rss"]
         let cfg = Config::from_str(text, "farol.toml").unwrap();
         assert_eq!(cfg.plugins.enabled, vec!["search", "sitemap"]);
         assert_eq!(cfg.plugins.disabled, vec!["rss"]);
+    }
+
+    #[test]
+    fn plugin_filter_default_enables_all() {
+        let cfg = PluginsConfig::default();
+        assert!(cfg.is_plugin_enabled("anything"));
+    }
+
+    #[test]
+    fn plugin_filter_whitelist_excludes_others() {
+        let cfg = PluginsConfig { enabled: vec!["a".into(), "b".into()], ..Default::default() };
+        assert!(cfg.is_plugin_enabled("a"));
+        assert!(cfg.is_plugin_enabled("b"));
+        assert!(!cfg.is_plugin_enabled("c"));
+    }
+
+    #[test]
+    fn plugin_filter_blacklist_excludes_only_listed() {
+        let cfg = PluginsConfig { disabled: vec!["x".into()], ..Default::default() };
+        assert!(cfg.is_plugin_enabled("a"));
+        assert!(!cfg.is_plugin_enabled("x"));
+    }
+
+    #[test]
+    fn plugin_filter_whitelist_wins_over_blacklist() {
+        let cfg =
+            PluginsConfig { enabled: vec!["a".into()], disabled: vec!["a".into(), "b".into()] };
+        assert!(cfg.is_plugin_enabled("a"));
+        assert!(!cfg.is_plugin_enabled("b"));
     }
 }

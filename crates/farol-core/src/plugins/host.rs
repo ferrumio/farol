@@ -72,6 +72,92 @@ pub struct NoOpHost;
 
 impl PluginHost for NoOpHost {}
 
+use std::sync::Arc;
+
+/// Composes multiple hosts. Hooks run in order - earlier hosts see the
+/// original input; later hosts see the accumulated result.
+///
+/// Used to apply Rust builtin plugins after a user's Python host transforms.
+pub struct ChainedHost {
+    hosts: Vec<Arc<dyn PluginHost>>,
+    display_name: String,
+}
+
+impl ChainedHost {
+    pub fn new(hosts: Vec<Arc<dyn PluginHost>>) -> Self {
+        let display_name =
+            hosts.iter().map(|h| h.name().to_string()).collect::<Vec<_>>().join(" + ");
+        Self { hosts, display_name }
+    }
+
+    /// Convenience constructor accepting owned boxes. Internally converts to
+    /// `Arc` so additional references can be cheaply shared.
+    pub fn from_boxes(hosts: Vec<Box<dyn PluginHost>>) -> Self {
+        Self::new(hosts.into_iter().map(Arc::from).collect())
+    }
+}
+
+impl PluginHost for ChainedHost {
+    fn name(&self) -> &str {
+        &self.display_name
+    }
+
+    fn plugins(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for h in &self.hosts {
+            out.extend(h.plugins());
+        }
+        out
+    }
+
+    fn on_config(&self, mut config: Config) -> Result<Config> {
+        for h in &self.hosts {
+            config = h.on_config(config)?;
+        }
+        Ok(config)
+    }
+
+    fn on_files(&self, mut files: FileTree, config: &Config) -> Result<FileTree> {
+        for h in &self.hosts {
+            files = h.on_files(files, config)?;
+        }
+        Ok(files)
+    }
+
+    fn on_nav(&self, pages: &[Page], config: &Config) -> Result<()> {
+        for h in &self.hosts {
+            h.on_nav(pages, config)?;
+        }
+        Ok(())
+    }
+
+    fn on_page_markdown(
+        &self,
+        mut markdown: String,
+        page: &Page,
+        config: &Config,
+    ) -> Result<String> {
+        for h in &self.hosts {
+            markdown = h.on_page_markdown(markdown, page, config)?;
+        }
+        Ok(markdown)
+    }
+
+    fn on_page_html(&self, mut html: String, page: &Page, config: &Config) -> Result<String> {
+        for h in &self.hosts {
+            html = h.on_page_html(html, page, config)?;
+        }
+        Ok(html)
+    }
+
+    fn on_post_build(&self, site_dir: &Path, config: &Config) -> Result<()> {
+        for h in &self.hosts {
+            h.on_post_build(site_dir, config)?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -93,6 +179,7 @@ mod tests {
     fn sample_page() -> Page {
         Page {
             relative: PathBuf::from("index.md"),
+            source_abs: PathBuf::from("/tmp/index.md"),
             url: "/".into(),
             output: PathBuf::from("index.html"),
             title: "hi".into(),

@@ -44,3 +44,191 @@ th, td { border: 1px solid var(--border); padding: 0.4rem 0.7rem; }
   main.content { grid-template-columns: 1fr; }
   aside.toc { position: static; }
 }
+
+/* --- heading anchor links --- */
+h1, h2, h3, h4 { position: relative; }
+.heading-anchor {
+  opacity: 0;
+  margin-left: 0.4em;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 400;
+  transition: opacity 0.15s;
+}
+h1:hover .heading-anchor, h2:hover .heading-anchor,
+h3:hover .heading-anchor, h4:hover .heading-anchor { opacity: 1; }
+
+/* --- admonitions --- */
+.admonition {
+  border-left: 3px solid var(--accent);
+  background: var(--code-bg);
+  padding: 0.75rem 1rem;
+  margin: 1.25rem 0;
+  border-radius: 4px;
+}
+.admonition-title { font-weight: 600; margin-bottom: 0.4rem; }
+.admonition.note     { border-color: #3b82f6; }
+.admonition.tip      { border-color: #10b981; }
+.admonition.important{ border-color: #8b5cf6; }
+.admonition.warning  { border-color: #f59e0b; }
+.admonition.caution  { border-color: #ef4444; }
+
+/* --- syntax-highlight code blocks --- */
+.farol-codeblock { position: relative; margin: 1rem 0; }
+.farol-codeblock pre { padding: 1rem 1.25rem; }
+.farol-codeblock .line { display: block; border-left: 3px solid transparent; padding-left: 0.5rem; margin-left: -0.75rem; }
+.farol-codeblock .line.mark  { background: rgba(91, 108, 255, 0.08); border-left-color: var(--accent); }
+.farol-codeblock .line.add   { background: rgba(16, 185, 129, 0.10); border-left-color: #10b981; }
+.farol-codeblock .line.del   { background: rgba(239, 68, 68, 0.10); border-left-color: #ef4444; }
+.farol-codeblock .line.focus { background: rgba(91, 108, 255, 0.05); }
+.farol-codeblock .line.dim   { opacity: 0.4; transition: opacity 0.15s; }
+.farol-codeblock:hover .line.dim { opacity: 0.9; }
+
+/* --- code copy button --- */
+.code-copy-wrap { position: relative; }
+.code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.code-copy-wrap:hover .code-copy { opacity: 1; }
+.code-copy:hover { color: var(--fg); }
+.code-copy.copied { color: #10b981; border-color: #10b981; }
+
+/* --- <picture>/<img> from image pipeline --- */
+picture img { max-width: 100%; height: auto; border-radius: 4px; }
+
+/* --- code block header (filename, etc.) --- */
+.codeblock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.codeblock-header .filename { font-family: ui-monospace, Menlo, monospace; }
+.farol-codeblock > .codeblock-header + pre { border-radius: 0 0 6px 6px; margin-top: 0; }
+
+/* --- line numbers --- */
+.farol-codeblock.with-linenums .linenum {
+  display: inline-block;
+  width: 2.5em;
+  margin-right: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+  user-select: none;
+}
+
+/* --- tabs --- */
+.farol-tabs {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+.farol-tabs .tab-buttons {
+  display: flex;
+  gap: 0;
+  background: var(--code-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 0.5rem;
+  overflow-x: auto;
+}
+.farol-tabs .tab-button {
+  padding: 0.5rem 1rem;
+  font: 500 0.85rem system-ui, -apple-system, sans-serif;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.farol-tabs .tab-button:hover { color: var(--fg); }
+.farol-tabs .tab-button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.farol-tabs .tab-panel { display: none; padding: 0.5rem 1rem; }
+.farol-tabs .tab-panel.active { display: block; }
+.farol-tabs .tab-panel > .farol-codeblock { margin: 0; }
+
+/* --- reading time --- */
+.reading-time {
+  display: inline-block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+/* --- edit on git --- */
+.edit-on-git {
+  float: right;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+.edit-on-git:hover { color: var(--accent); background: var(--code-bg); }
+
+/* --- prev/next navigation --- */
+.prev-next {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.prev-next a {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  transition: border-color 0.15s;
+}
+.prev-next a:hover { border-color: var(--accent); }
+.prev-next .hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.prev-next .title { font-weight: 500; margin-top: 0.25rem; }
+.prev-next .prev { text-align: left; }
+.prev-next .next { text-align: right; align-items: flex-end; }
+.prev-next .disabled { visibility: hidden; }
+
+/* --- files group --- */
+.farol-files { margin: 1rem 0; }
+.farol-files .file-entry { margin: 0.75rem 0; }
+.farol-files .file-label {
+  display: inline-block;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 0.25rem 0.75rem;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+}
+.farol-files .file-entry > .farol-codeblock { border-radius: 0 6px 6px 6px; margin-top: 0; }

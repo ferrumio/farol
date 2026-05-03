@@ -24,6 +24,10 @@ fn version() -> &'static str {
 #[pyfunction]
 #[pyo3(signature = (argv, manager))]
 fn run_cli(argv: Vec<String>, manager: PyObject) -> PyResult<()> {
+    // `run_cli` hands the user's Python-side PluginManager to the CLI as the
+    // "user host". The CLI layers builtin plugins on top inside each command
+    // (after loading the site config), so `[plugins] enabled/disabled` is
+    // honored uniformly.
     let host: Arc<dyn PluginHost> = Arc::new(PythonPluginHost::new(manager));
     let result = Python::with_gil(|py| py.allow_threads(|| farol_cli::run_with_argv(argv, host)));
     result.map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
@@ -36,7 +40,7 @@ fn run_cli(argv: Vec<String>, manager: PyObject) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(signature = (config_path, manager=None))]
 fn build(py: Python<'_>, config_path: String, manager: Option<PyObject>) -> PyResult<PyObject> {
-    use farol_core::{build as core_build, Config};
+    use farol_core::Config;
     use std::path::PathBuf;
 
     let config_path = PathBuf::from(config_path);
@@ -47,18 +51,17 @@ fn build(py: Python<'_>, config_path: String, manager: Option<PyObject>) -> PyRe
 
     let report = py
         .allow_threads(|| -> farol_core::Result<farol_core::BuildReport> {
-            match manager {
-                Some(m) => {
-                    let host = PythonPluginHost::new(m);
-                    farol_core::build_with(
-                        &config,
-                        &project_root,
-                        &farol_core::BuildOptions::default(),
-                        &host,
-                    )
-                }
-                None => core_build(&config, &project_root),
-            }
+            let user: Arc<dyn PluginHost> = match manager {
+                Some(m) => Arc::new(PythonPluginHost::new(m)),
+                None => Arc::new(farol_core::NoOpHost),
+            };
+            let host = farol_cli::with_builtins_filtered(user, &config.plugins);
+            farol_core::build_with(
+                &config,
+                &project_root,
+                &farol_core::BuildOptions::default(),
+                &host,
+            )
         })
         .map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))?;
 

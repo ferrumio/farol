@@ -46,7 +46,10 @@ pub fn parse(text: &str, path: &Path) -> Result<ParsedMarkdown> {
     let opts = Options {
         parse: parse_opts,
         compile: markdown::CompileOptions {
-            allow_dangerous_html: false,
+            // Markdown comes from the site author, not untrusted users; HTML
+            // passthrough is expected (plugins like syntax-highlight emit
+            // ready-made HTML blocks in `on_page_markdown`).
+            allow_dangerous_html: true,
             allow_dangerous_protocol: false,
             ..markdown::CompileOptions::gfm()
         },

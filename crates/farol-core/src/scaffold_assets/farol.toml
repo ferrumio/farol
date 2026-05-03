@@ -6,6 +6,12 @@ site_name = "My Docs"
 [theme]
 name = "default"
 
-[plugins]
-enabled  = ["search", "sitemap", "admonitions", "code-copy"]
-disabled = []
+# All builtin plugins run by default. To disable specific ones:
+#
+#   [plugins]
+#   disabled = ["reading-time", "prev-next"]
+#
+# Or, to run only a specific set (everything else is skipped):
+#
+#   [plugins]
+#   enabled = ["syntax-highlight", "sitemap"]
