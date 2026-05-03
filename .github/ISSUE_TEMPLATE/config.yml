@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question
+    url: https://github.com/ferrumio/farol/discussions/categories/q-a
+    about: Ask a question in Discussions instead of opening an issue.
+  - name: Idea
+    url: https://github.com/ferrumio/farol/discussions/categories/ideas
+    about: Share an idea before it becomes a formal feature request.

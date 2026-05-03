@@ -1,0 +1,31 @@
+[build-system]
+requires      = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name            = "farol"
+version         = "0.0.0"
+description     = "Fast, plugin-first documentation generator. Rust core, Python-friendly."
+readme          = "README.md"
+license         = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+authors         = [{ name = "ferrumio" }]
+keywords        = ["documentation", "markdown", "static-site-generator", "docs", "rust"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Documentation",
+]
+
+[project.urls]
+Homepage   = "https://github.com/ferrumio/farol"
+Repository = "https://github.com/ferrumio/farol"
+Issues     = "https://github.com/ferrumio/farol/issues"
+
+[tool.maturin]
+manifest-path = "crates/farol-py/Cargo.toml"
+module-name   = "farol"

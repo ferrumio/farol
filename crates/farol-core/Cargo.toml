@@ -1,0 +1,16 @@
+[package]
+name         = "farol-core"
+version      = { workspace = true }
+edition      = { workspace = true }
+rust-version = { workspace = true }
+authors      = { workspace = true }
+license      = { workspace = true }
+repository   = { workspace = true }
+description  = "Core engine for farol: the docs generator forged in Rust, lit for life."
+
+[dependencies]
+serde     = { workspace = true }
+thiserror = { workspace = true }
+miette    = { workspace = true }
+tracing   = { workspace = true }
+toml      = { workspace = true }

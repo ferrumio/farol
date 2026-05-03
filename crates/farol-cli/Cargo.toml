@@ -1,0 +1,19 @@
+[package]
+name         = "farol-cli"
+version      = { workspace = true }
+edition      = { workspace = true }
+rust-version = { workspace = true }
+authors      = { workspace = true }
+license      = { workspace = true }
+repository   = { workspace = true }
+description  = "Command-line interface for farol."
+
+[[bin]]
+name = "farol"
+path = "src/main.rs"
+
+[dependencies]
+farol-core = { workspace = true }
+clap       = { workspace = true }
+miette     = { workspace = true }
+tracing    = { workspace = true }

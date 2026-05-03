@@ -1,0 +1,41 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/farol-core",
+    "crates/farol-cli",
+    "crates/farol-py",
+]
+# farol-py is a PyO3 extension module that only links under maturin.
+# Keep it out of `cargo build --workspace` and build it with `uv run maturin develop`.
+default-members = [
+    "crates/farol-core",
+    "crates/farol-cli",
+]
+
+[workspace.package]
+version      = "0.0.0"
+edition      = "2021"
+rust-version = "1.75"
+authors      = ["ferrumio"]
+license      = "Apache-2.0"
+repository   = "https://github.com/ferrumio/farol"
+homepage     = "https://github.com/ferrumio/farol"
+readme       = "README.md"
+
+[workspace.dependencies]
+farol-core = { path = "crates/farol-core", version = "0.0.0" }
+
+clap      = { version = "4", features = ["derive"] }
+serde     = { version = "1", features = ["derive"] }
+thiserror = "1"
+miette    = { version = "7", features = ["fancy"] }
+tracing   = "0.1"
+toml      = "0.8"
+
+[profile.release]
+lto           = "thin"
+codegen-units = 1
+strip         = "symbols"
+
+[profile.dev]
+debug = "line-tables-only"
