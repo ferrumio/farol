@@ -43,6 +43,10 @@ url                = "2"
 redb               = "2"
 bincode            = { version = "2", features = ["serde"] }
 rayon              = "1"
+tokio              = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal", "net", "time", "fs"] }
+axum               = { version = "0.8", features = ["ws"] }
+notify             = "8"
+futures-util       = "0.3"
 
 [profile.release]
 lto           = "thin"

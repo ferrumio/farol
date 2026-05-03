@@ -1,3 +1,5 @@
+mod serve;
+
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
@@ -56,7 +58,14 @@ enum Commands {
         no_cache: bool,
     },
     /// Serve the site with live reload.
-    Serve,
+    Serve {
+        /// Port to bind.
+        #[arg(long, short = 'p', default_value_t = 8000)]
+        port: u16,
+        /// Host to bind. Use 0.0.0.0 to expose on the LAN.
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+    },
     /// Work with plugins.
     Plugin {
         #[command(subcommand)]
@@ -99,10 +108,7 @@ fn main() -> miette::Result<()> {
         Some(Commands::Build { timings, no_cache }) => {
             cmd_build(cli.config.as_deref(), timings, no_cache)
         }
-        Some(Commands::Serve) => {
-            println!("farol serve: not implemented yet");
-            Ok(())
-        }
+        Some(Commands::Serve { port, host }) => cmd_serve(cli.config.as_deref(), port, host),
         Some(Commands::Plugin { cmd: PluginCommand::New { name } }) => {
             println!("farol plugin new {name}: not implemented yet");
             Ok(())
@@ -111,6 +117,30 @@ fn main() -> miette::Result<()> {
             cmd_cache_clear(cli.config.as_deref())
         }
     }
+}
+
+fn cmd_serve(config_path: Option<&std::path::Path>, port: u16, host: String) -> miette::Result<()> {
+    let (config, project_root) = load_config(config_path)?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| miette::miette!("failed to start tokio runtime: {e}"))?;
+    runtime.block_on(serve::run(config, project_root, port, host))
+}
+
+fn load_config(config_path: Option<&std::path::Path>) -> miette::Result<(Config, PathBuf)> {
+    let config_path = config_path
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILENAME));
+    let project_root =
+        config_path.parent().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let config = if config_path.exists() {
+        Config::load(&config_path)?
+    } else {
+        tracing::warn!(path = %config_path.display(), "config not found, using defaults");
+        Config::default()
+    };
+    Ok((config, project_root))
 }
 
 fn cmd_new(path: &std::path::Path) -> miette::Result<()> {
