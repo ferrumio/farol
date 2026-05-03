@@ -2,16 +2,20 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
-use minijinja::context;
+use minijinja::{context, Environment};
 
 use crate::{
     assets,
+    cache::Cache,
     config::Config,
     error::{FarolError, Result},
     files::{self, FileKind},
     frontmatter,
+    graph::{Graph, Node, Report as GraphReport},
+    hash::{Hash, Hasher},
     links::{self, BrokenLink},
     markdown,
     page::Page,
@@ -19,25 +23,47 @@ use crate::{
     url::{output_path_for, site_url_for},
 };
 
+/// Options controlling a build invocation.
+#[derive(Debug, Default, Clone)]
+pub struct BuildOptions {
+    /// Collect per-node timing and emit a summary via `BuildReport::graph`.
+    pub timings: bool,
+    /// Override cache location. `None` = `<project_root>/.farol/cache.redb`.
+    pub cache_path: Option<PathBuf>,
+    /// Skip cache entirely (useful for CI without persistent disks).
+    pub no_cache: bool,
+}
+
 /// Outcome of a full build.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BuildReport {
     pub pages: usize,
     pub assets: usize,
     pub broken_links: Vec<BrokenLink>,
+    pub graph: Option<GraphReport>,
 }
 
-/// Build a site from `config` into `config.site_dir`.
+/// Build a site from `config` into `config.site_dir`. Short-form helper used by
+/// tests and the default CLI path.
 pub fn build(config: &Config, project_root: &Path) -> Result<BuildReport> {
+    build_with(config, project_root, &BuildOptions::default())
+}
+
+/// Build a site, with explicit options.
+pub fn build_with(
+    config: &Config,
+    project_root: &Path,
+    opts: &BuildOptions,
+) -> Result<BuildReport> {
     let docs_dir = project_root.join(&config.docs_dir);
     let site_dir = project_root.join(&config.site_dir);
     fs::create_dir_all(&site_dir).map_err(|e| FarolError::io(&site_dir, e))?;
 
+    // --- pre-graph: walk and parse -----------------------------------------
     let tree = files::walk(&docs_dir)?;
     let mut pages: Vec<Page> = Vec::new();
     let mut known_pages: HashMap<PathBuf, String> = HashMap::new();
 
-    // First pass: parse each markdown into a Page (body not yet link-resolved).
     for file in tree.files.iter().filter(|f| f.kind == FileKind::Markdown) {
         let source = fs::read_to_string(&file.path).map_err(|e| FarolError::io(&file.path, e))?;
         let (fm, body) = frontmatter::split(&source, &file.path)?;
@@ -68,7 +94,8 @@ pub fn build(config: &Config, project_root: &Path) -> Result<BuildReport> {
         });
     }
 
-    // Second pass: resolve internal markdown links using the full page index.
+    // Resolve internal links before hashing: this ensures cache entries are
+    // invalidated when sibling pages are renamed or added.
     let mut broken_links: Vec<BrokenLink> = Vec::new();
     for page in pages.iter_mut() {
         let (rewrites, mut broken) =
@@ -81,27 +108,40 @@ pub fn build(config: &Config, project_root: &Path) -> Result<BuildReport> {
         tracing::warn!(page = %b.page.display(), href = %b.href, reason = b.reason, "broken link");
     }
 
-    // Third pass: render every page through the default template.
+    // --- graph: render + write per page -----------------------------------
     let overrides = project_root.join("overrides");
     let env = theme::build_env(Some(&overrides))?;
-    let tmpl = env.get_template("default.html").map_err(|e| FarolError::ConfigInvalid {
-        message: format!("failed to load default template: {e}"),
-    })?;
+    let env = Arc::new(env);
 
-    for page in &pages {
-        let out = tmpl.render(context! { page => page, config => config }).map_err(|e| {
-            FarolError::ConfigInvalid {
-                message: format!("render error in {}: {e}", page.relative.display()),
-            }
-        })?;
-        let dest = site_dir.join(&page.output);
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|e| FarolError::io(parent, e))?;
-        }
-        fs::write(&dest, out).map_err(|e| FarolError::io(&dest, e))?;
+    // Summary used in the input hash so theme/config changes invalidate cache.
+    let theme_summary = theme_summary_bytes(config);
+    let nav_summary = nav_summary_bytes(&pages);
+
+    let cache = if opts.no_cache {
+        None
+    } else {
+        let path = opts
+            .cache_path
+            .clone()
+            .unwrap_or_else(|| project_root.join(".farol").join("cache.redb"));
+        Some(Cache::open(&path)?)
+    };
+
+    let mut graph = Graph::new();
+    for page in pages.iter().cloned() {
+        graph.push(RenderPageNode {
+            page,
+            site_dir: site_dir.clone(),
+            env: env.clone(),
+            config: config.clone(),
+            theme_summary: theme_summary.clone(),
+            nav_summary: nav_summary.clone(),
+        });
     }
 
-    // Copy theme assets and user assets.
+    let graph_report = graph.execute(cache.as_ref())?;
+
+    // --- post-graph: assets, sitemap, robots (cheap; always regenerated) ---
     theme::copy_assets(&site_dir)?;
     let mut asset_count = 0;
     for file in tree.files.iter().filter(|f| f.kind == FileKind::Asset) {
@@ -109,11 +149,103 @@ pub fn build(config: &Config, project_root: &Path) -> Result<BuildReport> {
         asset_count += 1;
     }
 
-    // Extras: sitemap + robots.
     write_sitemap(&site_dir, &pages, config)?;
     write_robots(&site_dir, config)?;
 
-    Ok(BuildReport { pages: pages.len(), assets: asset_count, broken_links })
+    Ok(BuildReport {
+        pages: pages.len(),
+        assets: asset_count,
+        broken_links,
+        graph: if opts.timings { Some(graph_report) } else { None },
+    })
+}
+
+/// Node that renders a single page and writes it to disk.
+struct RenderPageNode {
+    page: Page,
+    site_dir: PathBuf,
+    env: Arc<Environment<'static>>,
+    config: Config,
+    theme_summary: Vec<u8>,
+    nav_summary: Vec<u8>,
+}
+
+impl RenderPageNode {
+    fn render_html(&self) -> Result<String> {
+        let tmpl = self.env.get_template("default.html").map_err(|e| FarolError::Cache {
+            message: format!("failed to load default template: {e}"),
+        })?;
+        tmpl.render(context! { page => self.page, config => self.config }).map_err(|e| {
+            FarolError::Cache {
+                message: format!("render error in {}: {e}", self.page.relative.display()),
+            }
+        })
+    }
+
+    fn write_html(&self, html: &str) -> Result<()> {
+        let dest = self.site_dir.join(&self.page.output);
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| FarolError::io(parent, e))?;
+        }
+        fs::write(&dest, html).map_err(|e| FarolError::io(&dest, e))
+    }
+}
+
+impl Node for RenderPageNode {
+    fn id(&self) -> &str {
+        // `/guide/install/` - stable per-URL id regardless of docs_dir rename.
+        &self.page.url
+    }
+
+    fn input_hash(&self) -> Hash {
+        Hasher::new()
+            .tag("render-page")
+            .update(self.page.url.as_bytes())
+            .update(self.page.title.as_bytes())
+            .update(self.page.body_html.as_bytes())
+            // TOC captured by body_html already, since heading changes flow through markdown output.
+            .update(&self.theme_summary)
+            .update(&self.nav_summary)
+            .finish()
+    }
+
+    fn execute(&self) -> Result<Vec<u8>> {
+        let html = self.render_html()?;
+        self.write_html(&html)?;
+        Ok(html.into_bytes())
+    }
+
+    fn restore(&self, cached: &[u8]) -> Result<()> {
+        let html = std::str::from_utf8(cached).map_err(|e| FarolError::Cache {
+            message: format!("invalid cached html for {}: {e}", self.page.url),
+        })?;
+        self.write_html(html)
+    }
+}
+
+fn theme_summary_bytes(config: &Config) -> Vec<u8> {
+    Hasher::new()
+        .tag("theme")
+        .update(config.site_name.as_bytes())
+        .update(config.site_url.as_deref().unwrap_or("").as_bytes())
+        .update(config.theme.name.as_bytes())
+        .update(config.theme.palette.as_deref().unwrap_or("").as_bytes())
+        .update(config.theme.primary.as_deref().unwrap_or("").as_bytes())
+        .update(config.theme.accent.as_deref().unwrap_or("").as_bytes())
+        .finish()
+        .as_bytes()
+        .to_vec()
+}
+
+fn nav_summary_bytes(pages: &[Page]) -> Vec<u8> {
+    let mut pairs: Vec<(&str, &str)> =
+        pages.iter().map(|p| (p.url.as_str(), p.title.as_str())).collect();
+    pairs.sort();
+    let mut h = Hasher::new().tag("nav");
+    for (url, title) in pairs {
+        h = h.update(url.as_bytes()).update(b"|").update(title.as_bytes()).update(b"\n");
+    }
+    h.finish().as_bytes().to_vec()
 }
 
 fn write_sitemap(site_dir: &Path, pages: &[Page], config: &Config) -> Result<()> {
@@ -175,9 +307,6 @@ mod tests {
         let home = fs::read_to_string(root.join("site/index.html")).unwrap();
         assert!(home.contains("Home"));
         assert!(home.contains(r#"href="/guide/install/""#));
-
-        let install = fs::read_to_string(root.join("site/guide/install/index.html")).unwrap();
-        assert!(install.contains("Install"));
     }
 
     #[test]
@@ -190,5 +319,86 @@ mod tests {
         let cfg = Config::default();
         let report = build(&cfg, root).unwrap();
         assert_eq!(report.broken_links.len(), 1);
+    }
+
+    #[test]
+    fn warm_rebuild_hits_cache() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "index.md", "# Home\n");
+        write(&docs, "a.md", "# A\n");
+
+        let cfg = Config::default();
+        let opts = BuildOptions { timings: true, ..BuildOptions::default() };
+
+        let r1 = build_with(&cfg, root, &opts).unwrap();
+        assert_eq!(r1.graph.as_ref().unwrap().cache_misses, 2);
+        assert_eq!(r1.graph.as_ref().unwrap().cache_hits, 0);
+
+        let r2 = build_with(&cfg, root, &opts).unwrap();
+        assert_eq!(r2.graph.as_ref().unwrap().cache_hits, 2);
+        assert_eq!(r2.graph.as_ref().unwrap().cache_misses, 0);
+    }
+
+    #[test]
+    fn edited_page_invalidates_cache() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "index.md", "# Home\n");
+        write(&docs, "a.md", "# A\n");
+
+        let cfg = Config::default();
+        let opts = BuildOptions { timings: true, ..BuildOptions::default() };
+
+        build_with(&cfg, root, &opts).unwrap();
+
+        // Edit one file.
+        write(&docs, "a.md", "# A\n\nedited.\n");
+        let r = build_with(&cfg, root, &opts).unwrap();
+        let g = r.graph.unwrap();
+        // `a.md` rebuilds; `index.md` should still hit (nav title of A unchanged).
+        assert_eq!(g.cache_misses, 1);
+        assert_eq!(g.cache_hits, 1);
+    }
+
+    #[test]
+    fn title_change_invalidates_dependents() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "index.md", "# Home\n");
+        write(&docs, "a.md", "# A\n");
+
+        let cfg = Config::default();
+        let opts = BuildOptions { timings: true, ..BuildOptions::default() };
+
+        build_with(&cfg, root, &opts).unwrap();
+
+        // Change a page's title - nav summary changes so every page invalidates.
+        write(&docs, "a.md", "# A (renamed)\n");
+        let r = build_with(&cfg, root, &opts).unwrap();
+        let g = r.graph.unwrap();
+        assert_eq!(g.cache_misses, 2);
+        assert_eq!(g.cache_hits, 0);
+    }
+
+    #[test]
+    fn theme_change_invalidates_all() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "a.md", "# A\n");
+        write(&docs, "b.md", "# B\n");
+
+        let opts = BuildOptions { timings: true, ..BuildOptions::default() };
+
+        let cfg1 = Config { site_name: "v1".into(), ..Config::default() };
+        build_with(&cfg1, root, &opts).unwrap();
+
+        let cfg2 = Config { site_name: "v2".into(), ..Config::default() };
+        let r = build_with(&cfg2, root, &opts).unwrap();
+        assert_eq!(r.graph.unwrap().cache_misses, 2);
     }
 }

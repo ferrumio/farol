@@ -25,6 +25,8 @@ wheels/
 # farol
 .farol/
 /site/
+# nested demo/test projects inside the repo
+/**/.farol/
 
 # IDE
 .idea/
