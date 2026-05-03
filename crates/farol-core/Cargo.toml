@@ -25,6 +25,10 @@ url              = { workspace = true }
 redb             = { workspace = true }
 bincode          = { workspace = true }
 rayon            = { workspace = true }
+syntect          = { workspace = true }
+two-face         = { workspace = true }
+image            = { workspace = true }
+base64           = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

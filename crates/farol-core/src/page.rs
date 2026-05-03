@@ -9,6 +9,10 @@ use crate::{frontmatter::Frontmatter, toc::TocEntry};
 pub struct Page {
     /// Source path relative to `docs_dir` (e.g. `guide/install.md`).
     pub relative: PathBuf,
+    /// Absolute source path on disk (used by plugins that need to resolve
+    /// sibling files, e.g. `file="./examples/hello.py"` in a code block).
+    #[serde(skip)]
+    pub source_abs: PathBuf,
     /// Site URL (e.g. `/guide/install/`).
     pub url: String,
     /// Output path under `site_dir` (e.g. `guide/install/index.html`).

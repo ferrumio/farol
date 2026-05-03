@@ -12,7 +12,8 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use farol_core::{
-    build, scaffold, BuildOptions, Cache, Config, NoOpHost, PluginHost, DEFAULT_CONFIG_FILENAME,
+    build, plugins, scaffold, BuildOptions, Cache, ChainedHost, Config, NoOpHost, PluginHost,
+    DEFAULT_CONFIG_FILENAME,
 };
 use tracing_subscriber::EnvFilter;
 
@@ -115,8 +116,13 @@ where
     run(cli, host)
 }
 
-/// Run the CLI using `host`.
-pub fn run(cli: Cli, host: Arc<dyn PluginHost>) -> miette::Result<()> {
+/// Run the CLI using `user_host`.
+///
+/// `user_host` represents the user's plugin runtime (e.g. Python via
+/// `PythonPluginHost`). Builtins are layered on top inside each command
+/// after the site config is loaded, so `[plugins] enabled/disabled`
+/// filtering can apply uniformly.
+pub fn run(cli: Cli, user_host: Arc<dyn PluginHost>) -> miette::Result<()> {
     init_tracing(cli.verbose, cli.quiet);
 
     match cli.command {
@@ -128,14 +134,14 @@ pub fn run(cli: Cli, host: Arc<dyn PluginHost>) -> miette::Result<()> {
         }
         Some(Commands::New { path }) => cmd_new(&path),
         Some(Commands::Build { timings, no_cache }) => {
-            cmd_build(cli.config.as_deref(), timings, no_cache, host.as_ref())
+            cmd_build(cli.config.as_deref(), timings, no_cache, user_host)
         }
         Some(Commands::Serve { port, host: bind }) => {
-            cmd_serve(cli.config.as_deref(), port, bind, host)
+            cmd_serve(cli.config.as_deref(), port, bind, user_host)
         }
         Some(Commands::Plugin { cmd }) => match cmd {
             PluginCommand::New { name } => cmd_plugin_new(&name),
-            PluginCommand::List => cmd_plugin_list(host.as_ref()),
+            PluginCommand::List => cmd_plugin_list(user_host.as_ref()),
         },
         Some(Commands::Cache { cmd: CacheCommand::Clear }) => {
             cmd_cache_clear(cli.config.as_deref())
@@ -147,14 +153,16 @@ fn cmd_serve(
     config_path: Option<&Path>,
     port: u16,
     bind: String,
-    host: Arc<dyn PluginHost>,
+    user_host: Arc<dyn PluginHost>,
 ) -> miette::Result<()> {
     let (config, project_root) = load_config(config_path)?;
+    let composed: Arc<dyn PluginHost> =
+        Arc::new(with_builtins_filtered(user_host, &config.plugins));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .map_err(|e| miette::miette!("failed to start tokio runtime: {e}"))?;
-    runtime.block_on(serve::run(config, project_root, port, bind, host))
+    runtime.block_on(serve::run(config, project_root, port, bind, composed))
 }
 
 fn load_config(config_path: Option<&Path>) -> miette::Result<(Config, PathBuf)> {
@@ -185,7 +193,7 @@ fn cmd_build(
     config_path: Option<&Path>,
     timings: bool,
     no_cache: bool,
-    host: &dyn PluginHost,
+    user_host: Arc<dyn PluginHost>,
 ) -> miette::Result<()> {
     let config_path = config_path
         .map(|p| p.to_path_buf())
@@ -201,6 +209,8 @@ fn cmd_build(
         Config::default()
     };
 
+    let host = with_builtins_filtered(user_host, &config.plugins);
+
     println!("site:      {}", config.site_name);
     println!("config:    {}", config_path.display());
     println!("docs_dir:  {}", config.docs_dir.display());
@@ -211,7 +221,7 @@ fn cmd_build(
     }
 
     let opts = BuildOptions { timings, no_cache, cache_path: None };
-    let report = build::build_with(&config, &project_root, &opts, host)?;
+    let report = build::build_with(&config, &project_root, &opts, &host)?;
 
     println!();
     println!("built {} pages, {} assets", report.pages, report.assets);
@@ -392,7 +402,32 @@ fn init_tracing(verbose: u8, quiet: bool) {
 }
 
 /// Entry point for the standalone (non-Python) binary.
+///
+/// Passes a bare [`NoOpHost`] as the "user host". Builtins are composed on
+/// top in each command after the site's config has been loaded, so that
+/// `[plugins] enabled/disabled` can be honored.
 pub fn main_entry() -> miette::Result<()> {
     let host: Arc<dyn PluginHost> = Arc::new(NoOpHost);
     run_with_argv(std::env::args(), host)
+}
+
+/// Wrap a user host with all builtin plugins. User hooks run before builtins
+/// so their transformations feed into the builtin pipeline.
+pub fn with_builtins(user: Arc<dyn PluginHost>) -> ChainedHost {
+    with_builtins_filtered(user, &farol_core::config::PluginsConfig::default())
+}
+
+/// Like [`with_builtins`] but honors `[plugins] enabled/disabled` from the
+/// site's config, filtering the builtin set before composing.
+pub fn with_builtins_filtered(
+    user: Arc<dyn PluginHost>,
+    plugins_cfg: &farol_core::config::PluginsConfig,
+) -> ChainedHost {
+    let mut hosts: Vec<Arc<dyn PluginHost>> = vec![user];
+    for plugin in plugins::core::all() {
+        if plugins_cfg.is_plugin_enabled(plugin.name()) {
+            hosts.push(Arc::from(plugin));
+        }
+    }
+    ChainedHost::new(hosts)
 }

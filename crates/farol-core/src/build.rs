@@ -16,10 +16,11 @@ use crate::{
     frontmatter,
     graph::{Graph, Node, Report as GraphReport},
     hash::{Hash, Hasher},
+    images::{self, ImageIndex},
     links::{self, BrokenLink},
     markdown,
     page::Page,
-    plugin::{NoOpHost, PluginHost},
+    plugins::{NoOpHost, PluginHost},
     theme, toc,
     url::{output_path_for, site_url_for},
 };
@@ -83,6 +84,7 @@ pub fn build_with(
             });
         let placeholder = Page {
             relative: file.relative.clone(),
+            source_abs: file.path.clone(),
             url: url.clone(),
             output: output_path_for(&url),
             title: title_guess,
@@ -109,6 +111,7 @@ pub fn build_with(
 
         pages.push(Page {
             relative: file.relative.clone(),
+            source_abs: file.path.clone(),
             url,
             output: output_path_for(&site_url_for(&file.relative)),
             title,
@@ -128,6 +131,18 @@ pub fn build_with(
             links::resolve_in_html(&page.relative, &page.body_html, &known_pages);
         page.body_html = links::apply_rewrites(&page.body_html, &rewrites);
         broken_links.append(&mut broken);
+    }
+
+    // Build image index (processes every image asset once).
+    let image_index = process_images(&tree, &site_dir)?;
+
+    // Rewrite <img> tags using the processed image index before plugins
+    // touch the HTML, so plugins see the final DOM.
+    if !image_index.is_empty() {
+        for page in pages.iter_mut() {
+            let html = std::mem::take(&mut page.body_html);
+            page.body_html = images::rewrite_images(&html, &page.relative, &image_index);
+        }
     }
 
     // Plugins see resolved HTML and may mutate it.
@@ -173,17 +188,18 @@ pub fn build_with(
 
     let graph_report = graph.execute(cache.as_ref())?;
 
-    // --- post-graph: assets, sitemap, robots (cheap; always regenerated) ---
+    // --- post-graph: theme assets, non-image assets ------------------------
     theme::copy_assets(&site_dir)?;
-    let mut asset_count = 0;
+    let mut asset_count = image_index.len();
     for file in tree.files.iter().filter(|f| f.kind == FileKind::Asset) {
+        if images::is_image(&file.path) {
+            continue; // already processed above
+        }
         assets::copy_asset(&file.path, &file.relative, &site_dir, false)?;
         asset_count += 1;
     }
 
-    write_sitemap(&site_dir, &pages, config)?;
-    write_robots(&site_dir, config)?;
-
+    // Builtins (sitemap, etc.) run via on_post_build.
     host.on_post_build(&site_dir, config)?;
 
     Ok(BuildReport {
@@ -282,27 +298,16 @@ fn nav_summary_bytes(pages: &[Page]) -> Vec<u8> {
     h.finish().as_bytes().to_vec()
 }
 
-fn write_sitemap(site_dir: &Path, pages: &[Page], config: &Config) -> Result<()> {
-    let base = config.site_url.clone().unwrap_or_default();
-    let mut xml = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    xml.push_str("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-    for page in pages {
-        xml.push_str("  <url><loc>");
-        xml.push_str(&format!("{}{}", base.trim_end_matches('/'), page.url));
-        xml.push_str("</loc></url>\n");
+fn process_images(tree: &files::FileTree, site_dir: &Path) -> Result<ImageIndex> {
+    let mut index = ImageIndex::new();
+    for file in tree.files.iter().filter(|f| f.kind == FileKind::Asset) {
+        if !images::is_image(&file.path) {
+            continue;
+        }
+        let meta = images::process(&file.path, &file.relative, site_dir)?;
+        index.insert(file.relative.clone(), meta);
     }
-    xml.push_str("</urlset>\n");
-    let dest = site_dir.join("sitemap.xml");
-    fs::write(&dest, xml).map_err(|e| FarolError::io(&dest, e))
-}
-
-fn write_robots(site_dir: &Path, config: &Config) -> Result<()> {
-    let mut text = String::from("User-agent: *\nAllow: /\n");
-    if let Some(url) = &config.site_url {
-        text.push_str(&format!("Sitemap: {}/sitemap.xml\n", url.trim_end_matches('/')));
-    }
-    let dest = site_dir.join("robots.txt");
-    fs::write(&dest, text).map_err(|e| FarolError::io(&dest, e))
+    Ok(index)
 }
 
 #[cfg(test)]
@@ -321,6 +326,8 @@ mod tests {
 
     #[test]
     fn builds_minimal_site() {
+        use crate::plugins::{core as builtins, ChainedHost};
+
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
         let docs = root.join("docs");
@@ -328,7 +335,13 @@ mod tests {
         write(&docs, "guide/install.md", "---\ntitle: Install\n---\n# Install\n\nstuff.\n");
 
         let cfg = Config { site_url: Some("https://example.com".into()), ..Config::default() };
-        let report = build(&cfg, root).unwrap();
+        // Compose builtins so sitemap/robots are generated.
+        let mut hosts: Vec<Box<dyn PluginHost>> = vec![Box::new(NoOpHost)];
+        hosts.extend(builtins::all());
+        let host = ChainedHost::from_boxes(hosts);
+        let report =
+            build_with(&cfg, root, &BuildOptions { no_cache: true, ..Default::default() }, &host)
+                .unwrap();
 
         assert_eq!(report.pages, 2);
         assert!(report.broken_links.is_empty());
@@ -377,7 +390,7 @@ mod tests {
 
     #[test]
     fn plugin_can_rewrite_markdown() {
-        use crate::plugin::PluginHost;
+        use crate::plugins::PluginHost;
 
         struct WaveHost;
         impl PluginHost for WaveHost {
@@ -407,7 +420,7 @@ mod tests {
 
     #[test]
     fn plugin_can_rewrite_html() {
-        use crate::plugin::PluginHost;
+        use crate::plugins::PluginHost;
 
         struct AttrHost;
         impl PluginHost for AttrHost {
@@ -431,7 +444,7 @@ mod tests {
 
     #[test]
     fn plugin_error_propagates() {
-        use crate::plugin::PluginHost;
+        use crate::plugins::PluginHost;
 
         struct Fails;
         impl PluginHost for Fails {
