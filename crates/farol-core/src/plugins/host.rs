@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-use crate::{config::Config, error::Result, files::FileTree, page::Page};
+use crate::{config::Config, error::Result, files::FileTree, page::Page, search::SearchEntry};
 
 /// The full set of hooks a plugin runtime can provide.
 ///
@@ -52,6 +52,16 @@ pub trait PluginHost: Send + Sync {
     /// written. Useful for post-processing (sitemap augmentations, etc.).
     fn on_post_build(&self, _site_dir: &Path, _config: &Config) -> Result<()> {
         Ok(())
+    }
+
+    /// Called once right before the search index is serialized. Plugins may
+    /// add, remove, or reweight entries. Default pass-through.
+    fn on_search_index(
+        &self,
+        entries: Vec<SearchEntry>,
+        _config: &Config,
+    ) -> Result<Vec<SearchEntry>> {
+        Ok(entries)
     }
 
     /// Human-readable identifier for logging / error messages.
@@ -155,6 +165,17 @@ impl PluginHost for ChainedHost {
             h.on_post_build(site_dir, config)?;
         }
         Ok(())
+    }
+
+    fn on_search_index(
+        &self,
+        mut entries: Vec<SearchEntry>,
+        config: &Config,
+    ) -> Result<Vec<SearchEntry>> {
+        for h in &self.hosts {
+            entries = h.on_search_index(entries, config)?;
+        }
+        Ok(entries)
     }
 }
 

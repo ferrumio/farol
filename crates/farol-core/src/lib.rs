@@ -17,6 +17,7 @@ pub mod markdown;
 pub mod page;
 pub mod plugins;
 pub mod scaffold;
+pub mod search;
 pub mod slug;
 pub mod theme;
 pub mod toc;

@@ -38,8 +38,9 @@ fn inject_anchors(html: &str) -> String {
             Some(b"<h3>") => (4, 3),
             Some(b"<h4>") => (4, 4),
             _ => {
-                out.push_str(&html[cursor..cursor + 1]);
-                cursor += 1;
+                let next = char_boundary_after(html, cursor);
+                out.push_str(&html[cursor..next]);
+                cursor = next;
                 continue;
             }
         };
@@ -53,8 +54,9 @@ fn inject_anchors(html: &str) -> String {
         let close_idx = match rest[tag_len..].find(close_tag) {
             Some(i) => tag_len + i,
             None => {
-                out.push_str(&html[cursor..cursor + 1]);
-                cursor += 1;
+                let next = char_boundary_after(html, cursor);
+                out.push_str(&html[cursor..next]);
+                cursor = next;
                 continue;
             }
         };
@@ -77,6 +79,16 @@ fn inject_anchors(html: &str) -> String {
     }
 
     out
+}
+
+/// Advance `cursor` by one UTF-8 char. Returns the index after it.
+fn char_boundary_after(s: &str, cursor: usize) -> usize {
+    let bytes = s.as_bytes();
+    let mut i = cursor + 1;
+    while i < bytes.len() && !s.is_char_boundary(i) {
+        i += 1;
+    }
+    i
 }
 
 fn strip_tags(s: &str) -> String {

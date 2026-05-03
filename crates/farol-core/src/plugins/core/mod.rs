@@ -15,6 +15,7 @@ pub mod highlight;
 pub mod prev_next;
 pub mod reading_time;
 pub mod redirects;
+pub mod search;
 pub mod sitemap;
 
 use crate::PluginHost;
@@ -36,6 +37,7 @@ pub fn all() -> Vec<Box<dyn PluginHost>> {
         Box::new(reading_time::ReadingTimePlugin),
         Box::new(edit_on_git::EditOnGitPlugin),
         Box::new(prev_next::PrevNextPlugin::default()),
+        Box::new(search::SearchPlugin::default()),
         Box::new(redirects::RedirectsPlugin),
         Box::new(sitemap::SitemapPlugin::default()),
     ]
