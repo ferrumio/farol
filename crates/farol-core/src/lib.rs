@@ -14,6 +14,7 @@ pub mod hash;
 pub mod links;
 pub mod markdown;
 pub mod page;
+pub mod plugin;
 pub mod scaffold;
 pub mod slug;
 pub mod theme;
@@ -28,5 +29,6 @@ pub use files::{File, FileKind, FileTree};
 pub use graph::{Graph, Node, NodeOutcome, NodeTiming, Report as GraphReport};
 pub use hash::{Hash, Hasher};
 pub use page::Page;
+pub use plugin::{NoOpHost, PluginHost};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -19,6 +19,7 @@ use crate::{
     links::{self, BrokenLink},
     markdown,
     page::Page,
+    plugin::{NoOpHost, PluginHost},
     theme, toc,
     url::{output_path_for, site_url_for},
 };
@@ -46,28 +47,52 @@ pub struct BuildReport {
 /// Build a site from `config` into `config.site_dir`. Short-form helper used by
 /// tests and the default CLI path.
 pub fn build(config: &Config, project_root: &Path) -> Result<BuildReport> {
-    build_with(config, project_root, &BuildOptions::default())
+    build_with(config, project_root, &BuildOptions::default(), &NoOpHost)
 }
 
-/// Build a site, with explicit options.
+/// Build a site, with explicit options and a plugin host.
 pub fn build_with(
     config: &Config,
     project_root: &Path,
     opts: &BuildOptions,
+    host: &dyn PluginHost,
 ) -> Result<BuildReport> {
+    // Plugins get first crack at the config.
+    let config = host.on_config(config.clone())?;
+    let config = &config;
+
     let docs_dir = project_root.join(&config.docs_dir);
     let site_dir = project_root.join(&config.site_dir);
     fs::create_dir_all(&site_dir).map_err(|e| FarolError::io(&site_dir, e))?;
 
     // --- pre-graph: walk and parse -----------------------------------------
     let tree = files::walk(&docs_dir)?;
+    let tree = host.on_files(tree, config)?;
     let mut pages: Vec<Page> = Vec::new();
     let mut known_pages: HashMap<PathBuf, String> = HashMap::new();
 
     for file in tree.files.iter().filter(|f| f.kind == FileKind::Markdown) {
         let source = fs::read_to_string(&file.path).map_err(|e| FarolError::io(&file.path, e))?;
         let (fm, body) = frontmatter::split(&source, &file.path)?;
-        let parsed = markdown::parse(body, &file.path)?;
+
+        // Build a placeholder page so plugins have metadata at on_page_markdown time.
+        let url = site_url_for(&file.relative);
+        let title_guess =
+            fm.get("title").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| {
+                file.relative.file_stem().and_then(|s| s.to_str()).unwrap_or("untitled").to_string()
+            });
+        let placeholder = Page {
+            relative: file.relative.clone(),
+            url: url.clone(),
+            output: output_path_for(&url),
+            title: title_guess,
+            frontmatter: fm.clone(),
+            body_html: String::new(),
+            toc: Vec::new(),
+        };
+
+        let body = host.on_page_markdown(body.to_string(), &placeholder, config)?;
+        let parsed = markdown::parse(&body, &file.path)?;
 
         let title = fm
             .get("title")
@@ -78,7 +103,6 @@ pub fn build_with(
                 file.relative.file_stem().and_then(|s| s.to_str()).unwrap_or("untitled").to_string()
             });
 
-        let url = site_url_for(&file.relative);
         known_pages.insert(file.relative.clone(), url.clone());
 
         let toc_tree = toc::build(&parsed.headings, 3);
@@ -94,6 +118,8 @@ pub fn build_with(
         });
     }
 
+    host.on_nav(&pages, config)?;
+
     // Resolve internal links before hashing: this ensures cache entries are
     // invalidated when sibling pages are renamed or added.
     let mut broken_links: Vec<BrokenLink> = Vec::new();
@@ -102,6 +128,12 @@ pub fn build_with(
             links::resolve_in_html(&page.relative, &page.body_html, &known_pages);
         page.body_html = links::apply_rewrites(&page.body_html, &rewrites);
         broken_links.append(&mut broken);
+    }
+
+    // Plugins see resolved HTML and may mutate it.
+    for page in pages.iter_mut() {
+        let html = std::mem::take(&mut page.body_html);
+        page.body_html = host.on_page_html(html, page, config)?;
     }
 
     for b in &broken_links {
@@ -151,6 +183,8 @@ pub fn build_with(
 
     write_sitemap(&site_dir, &pages, config)?;
     write_robots(&site_dir, config)?;
+
+    host.on_post_build(&site_dir, config)?;
 
     Ok(BuildReport {
         pages: pages.len(),
@@ -332,13 +366,97 @@ mod tests {
         let cfg = Config::default();
         let opts = BuildOptions { timings: true, ..BuildOptions::default() };
 
-        let r1 = build_with(&cfg, root, &opts).unwrap();
+        let r1 = build_with(&cfg, root, &opts, &NoOpHost).unwrap();
         assert_eq!(r1.graph.as_ref().unwrap().cache_misses, 2);
         assert_eq!(r1.graph.as_ref().unwrap().cache_hits, 0);
 
-        let r2 = build_with(&cfg, root, &opts).unwrap();
+        let r2 = build_with(&cfg, root, &opts, &NoOpHost).unwrap();
         assert_eq!(r2.graph.as_ref().unwrap().cache_hits, 2);
         assert_eq!(r2.graph.as_ref().unwrap().cache_misses, 0);
+    }
+
+    #[test]
+    fn plugin_can_rewrite_markdown() {
+        use crate::plugin::PluginHost;
+
+        struct WaveHost;
+        impl PluginHost for WaveHost {
+            fn on_page_markdown(
+                &self,
+                markdown: String,
+                _page: &Page,
+                _config: &Config,
+            ) -> Result<String> {
+                Ok(markdown.replace(":wave:", "👋"))
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "index.md", "# Hi :wave:\n");
+
+        let cfg = Config::default();
+        let opts = BuildOptions { no_cache: true, ..BuildOptions::default() };
+        build_with(&cfg, root, &opts, &WaveHost).unwrap();
+
+        let html = fs::read_to_string(root.join("site/index.html")).unwrap();
+        assert!(html.contains("👋"), "plugin replacement missing from output");
+        assert!(!html.contains(":wave:"), "raw token leaked");
+    }
+
+    #[test]
+    fn plugin_can_rewrite_html() {
+        use crate::plugin::PluginHost;
+
+        struct AttrHost;
+        impl PluginHost for AttrHost {
+            fn on_page_html(&self, html: String, _page: &Page, _config: &Config) -> Result<String> {
+                Ok(html.replace("<p>", "<p data-plugin=\"attr\">"))
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "index.md", "# Hi\n\nparagraph.\n");
+
+        let cfg = Config::default();
+        let opts = BuildOptions { no_cache: true, ..BuildOptions::default() };
+        build_with(&cfg, root, &opts, &AttrHost).unwrap();
+
+        let html = fs::read_to_string(root.join("site/index.html")).unwrap();
+        assert!(html.contains("data-plugin=\"attr\""));
+    }
+
+    #[test]
+    fn plugin_error_propagates() {
+        use crate::plugin::PluginHost;
+
+        struct Fails;
+        impl PluginHost for Fails {
+            fn on_page_markdown(
+                &self,
+                _markdown: String,
+                _page: &Page,
+                _config: &Config,
+            ) -> Result<String> {
+                Err(FarolError::ConfigInvalid { message: "plugin said no".into() })
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let docs = root.join("docs");
+        write(&docs, "index.md", "# hi\n");
+
+        let cfg = Config::default();
+        let opts = BuildOptions { no_cache: true, ..BuildOptions::default() };
+        let err = build_with(&cfg, root, &opts, &Fails).unwrap_err();
+        match err {
+            FarolError::ConfigInvalid { message } => assert!(message.contains("plugin said no")),
+            other => panic!("wrong error: {other:?}"),
+        }
     }
 
     #[test]
@@ -352,11 +470,11 @@ mod tests {
         let cfg = Config::default();
         let opts = BuildOptions { timings: true, ..BuildOptions::default() };
 
-        build_with(&cfg, root, &opts).unwrap();
+        build_with(&cfg, root, &opts, &NoOpHost).unwrap();
 
         // Edit one file.
         write(&docs, "a.md", "# A\n\nedited.\n");
-        let r = build_with(&cfg, root, &opts).unwrap();
+        let r = build_with(&cfg, root, &opts, &NoOpHost).unwrap();
         let g = r.graph.unwrap();
         // `a.md` rebuilds; `index.md` should still hit (nav title of A unchanged).
         assert_eq!(g.cache_misses, 1);
@@ -374,11 +492,11 @@ mod tests {
         let cfg = Config::default();
         let opts = BuildOptions { timings: true, ..BuildOptions::default() };
 
-        build_with(&cfg, root, &opts).unwrap();
+        build_with(&cfg, root, &opts, &NoOpHost).unwrap();
 
         // Change a page's title - nav summary changes so every page invalidates.
         write(&docs, "a.md", "# A (renamed)\n");
-        let r = build_with(&cfg, root, &opts).unwrap();
+        let r = build_with(&cfg, root, &opts, &NoOpHost).unwrap();
         let g = r.graph.unwrap();
         assert_eq!(g.cache_misses, 2);
         assert_eq!(g.cache_hits, 0);
@@ -395,10 +513,10 @@ mod tests {
         let opts = BuildOptions { timings: true, ..BuildOptions::default() };
 
         let cfg1 = Config { site_name: "v1".into(), ..Config::default() };
-        build_with(&cfg1, root, &opts).unwrap();
+        build_with(&cfg1, root, &opts, &NoOpHost).unwrap();
 
         let cfg2 = Config { site_name: "v2".into(), ..Config::default() };
-        let r = build_with(&cfg2, root, &opts).unwrap();
+        let r = build_with(&cfg2, root, &opts, &NoOpHost).unwrap();
         assert_eq!(r.graph.unwrap().cache_misses, 2);
     }
 }
