@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }} - {{ config.site_name }}</title>
+  <link rel="stylesheet" href="/assets/base.css">
+  {% if config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
+</head>
+<body>
+  {% include "partials/header.html" %}
+  <main class="content">
+    <article>
+      {{ page.body_html | safe }}
+    </article>
+    {% if page.toc %}
+    <aside class="toc">
+      <h4>On this page</h4>
+      <ul>
+        {% for entry in page.toc %}
+        <li><a href="#{{ entry.slug }}">{{ entry.title }}</a>
+          {% if entry.children %}
+          <ul>{% for c in entry.children %}<li><a href="#{{ c.slug }}">{{ c.title }}</a></li>{% endfor %}</ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+    {% endif %}
+  </main>
+  {% include "partials/footer.html" %}
+</body>
+</html>
