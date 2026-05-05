@@ -49,34 +49,38 @@ jobs:
         run: cargo test
 
   build:
-    name: build wheel (${{ matrix.os }})
+    name: build wheel (${{ matrix.os }}, py${{ matrix.python }})
+    needs: rust
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          enable-cache: true
-      - name: set up python
-        run: uv python install 3.12
-      - name: build abi3 wheel
-        run: |
-          uv venv --python 3.12
-          uv pip install maturin
-          uv run maturin build --release --out dist
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist -i python${{ matrix.python }}
+          sccache: true
+
       - uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
           path: dist/*.whl
           retention-days: 1
 
-  python:
-    name: python (${{ matrix.os }}, py${{ matrix.python }})
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
     needs: build
     strategy:
       fail-fast: false
@@ -86,20 +90,26 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          enable-cache: true
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+
       - uses: actions/download-artifact@v4
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
           path: dist
-      - name: set up python
-        run: uv python install ${{ matrix.python }}
+
       - name: install wheel
         run: |
-          uv venv --python ${{ matrix.python }}
-          uv pip install dist/*.whl
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install dist/*.whl
+
       - name: smoke test
         run: |
-          uv run --no-project python -c "import farol; print(farol.version())"
-          uv run --no-project farol --version
+          source .venv/bin/activate
+          python -c "import farol; print(farol.version())"
+          farol --version

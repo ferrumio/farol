@@ -3,8 +3,12 @@
 # Builds and publishes farol wheels to PyPI.
 # Triggers on version tag push (v*) or manually via workflow_dispatch.
 #
-# farol uses PyO3 abi3-py311, so a single wheel per platform covers
-# Python 3.11, 3.12, 3.13, 3.14 and any future 3.x.
+# Produces one wheel per (platform, Python version) combination:
+#   - linux x86_64  × cp311/cp312/cp313/cp314
+#   - linux aarch64 × cp311/cp312/cp313/cp314
+#   - macOS x86_64  × cp311/cp312/cp313/cp314
+#   - macOS arm64   × cp311/cp312/cp313/cp314
+#   - sdist
 #
 # Usage:
 #   git tag v0.1.0
@@ -50,9 +54,13 @@ jobs:
           echo "Releasing version: $VERSION"
 
   build-linux-x86:
-    name: Build manylinux x86_64 (abi3)
+    name: Build manylinux x86_64 cp${{ matrix.python }}
     needs: prepare
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -60,20 +68,24 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: x86_64
-          args: --release --out dist
+          args: --release --out dist -i python${{ matrix.python }}
           manylinux: auto
           sccache: true
 
       - name: Upload wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: farol-${{ needs.prepare.outputs.version }}-manylinux-x86_64
+          name: farol-${{ needs.prepare.outputs.version }}-cp${{ matrix.python }}-manylinux-x86_64
           path: dist/*.whl
 
   build-linux-arm:
-    name: Build manylinux aarch64 (abi3)
+    name: Build manylinux aarch64 cp${{ matrix.python }}
     needs: prepare
     runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -81,47 +93,45 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: aarch64
-          args: --release --out dist
+          args: --release --out dist -i python${{ matrix.python }}
           manylinux: auto
           sccache: true
 
       - name: Upload wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: farol-${{ needs.prepare.outputs.version }}-manylinux-aarch64
+          name: farol-${{ needs.prepare.outputs.version }}-cp${{ matrix.python }}-manylinux-aarch64
           path: dist/*.whl
 
   build-macos:
-    name: Build macOS ${{ matrix.target }} (abi3)
+    name: Build macOS ${{ matrix.target }} cp${{ matrix.python }}
     needs: prepare
     runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: x86_64-apple-darwin
-            artifact: macos-x86_64
-          - target: aarch64-apple-darwin
-            artifact: macos-arm64
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
 
       - name: Build wheel
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist
+          args: --release --out dist -i python${{ matrix.python }}
           sccache: true
 
       - name: Upload wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: farol-${{ needs.prepare.outputs.version }}-${{ matrix.artifact }}
+          name: farol-${{ needs.prepare.outputs.version }}-cp${{ matrix.python }}-macos-${{ matrix.target }}
           path: dist/*.whl
 
   build-sdist:
