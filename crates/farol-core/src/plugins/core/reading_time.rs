@@ -80,6 +80,7 @@ mod tests {
             frontmatter: Frontmatter::new(),
             body_html: String::new(),
             toc: Vec::new(),
+            layout: "default".to_string(),
         }
     }
 

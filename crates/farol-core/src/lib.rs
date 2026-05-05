@@ -14,6 +14,7 @@ pub mod hash;
 pub mod images;
 pub mod links;
 pub mod markdown;
+pub mod nav;
 pub mod page;
 pub mod plugins;
 pub mod scaffold;

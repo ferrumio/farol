@@ -18,7 +18,7 @@ use crate::{
     hash::{Hash, Hasher},
     images::{self, ImageIndex},
     links::{self, BrokenLink},
-    markdown,
+    markdown, nav,
     page::Page,
     plugins::{NoOpHost, PluginHost},
     theme, toc,
@@ -91,6 +91,7 @@ pub fn build_with(
             frontmatter: fm.clone(),
             body_html: String::new(),
             toc: Vec::new(),
+            layout: "default".to_string(),
         };
 
         let body = host.on_page_markdown(body.to_string(), &placeholder, config)?;
@@ -108,6 +109,11 @@ pub fn build_with(
         known_pages.insert(file.relative.clone(), url.clone());
 
         let toc_tree = toc::build(&parsed.headings, 3);
+        let layout = fm
+            .get("layout")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "default".to_string());
 
         pages.push(Page {
             relative: file.relative.clone(),
@@ -118,6 +124,7 @@ pub fn build_with(
             frontmatter: fm,
             body_html: parsed.html,
             toc: toc_tree,
+            layout,
         });
     }
 
@@ -160,6 +167,9 @@ pub fn build_with(
     let env = theme::build_env(Some(&overrides))?;
     let env = Arc::new(env);
 
+    // Build the site-wide nav tree once; every render node reads the same Arc.
+    let nav_tree = Arc::new(nav::build(&pages));
+
     // Summary used in the input hash so theme/config changes invalidate cache.
     let theme_summary = theme_summary_bytes(config);
     let nav_summary = nav_summary_bytes(&pages);
@@ -181,6 +191,7 @@ pub fn build_with(
             site_dir: site_dir.clone(),
             env: env.clone(),
             config: config.clone(),
+            nav: nav_tree.clone(),
             theme_summary: theme_summary.clone(),
             nav_summary: nav_summary.clone(),
         });
@@ -216,19 +227,32 @@ struct RenderPageNode {
     site_dir: PathBuf,
     env: Arc<Environment<'static>>,
     config: Config,
+    nav: Arc<Vec<crate::nav::NavNode>>,
     theme_summary: Vec<u8>,
     nav_summary: Vec<u8>,
 }
 
 impl RenderPageNode {
     fn render_html(&self) -> Result<String> {
-        let tmpl = self.env.get_template("default.html").map_err(|e| FarolError::Cache {
-            message: format!("failed to load default template: {e}"),
-        })?;
-        tmpl.render(context! { page => self.page, config => self.config }).map_err(|e| {
+        let template_name = format!("{}.html", self.page.layout);
+        let tmpl = self.env.get_template(&template_name).map_err(|_| {
+            // Fall back to `default.html` if the requested layout doesn't exist.
+            // Surface the error on the first template load, not here.
             FarolError::Cache {
-                message: format!("render error in {}: {e}", self.page.relative.display()),
+                message: format!(
+                    "layout `{}` referenced in {} has no matching template",
+                    self.page.layout,
+                    self.page.relative.display()
+                ),
             }
+        })?;
+        tmpl.render(context! {
+            page => self.page,
+            config => self.config,
+            nav => *self.nav,
+        })
+        .map_err(|e| FarolError::Cache {
+            message: format!("render error in {}: {e}", self.page.relative.display()),
         })
     }
 

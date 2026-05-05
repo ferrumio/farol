@@ -25,4 +25,13 @@ pub struct Page {
     pub body_html: String,
     /// Nested table of contents.
     pub toc: Vec<TocEntry>,
+    /// Template to render with. Derived from `layout:` frontmatter
+    /// (e.g. `"landing"`) and falls back to `"default"`.
+    #[serde(default = "default_layout")]
+    pub layout: String,
+}
+
+#[allow(dead_code)] // used by serde(default) on the `layout` field.
+fn default_layout() -> String {
+    "default".to_string()
 }

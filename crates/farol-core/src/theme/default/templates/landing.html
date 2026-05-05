@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }} — {{ config.site_name }}</title>
+  {% if config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
+  <link rel="stylesheet" href="/assets/base.css">
+  <script src="/assets/farol.js" defer></script>
+  <script src="/assets/search.js" defer></script>
+</head>
+<body class="landing">
+  {% include "partials/header.html" %}
+
+  <main class="landing-main">
+    <article class="prose landing-prose">
+      {{ page.body_html | safe }}
+    </article>
+  </main>
+
+  {% include "partials/footer.html" %}
+  {% include "partials/search.html" %}
+</body>
+</html>
