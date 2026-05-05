@@ -248,7 +248,7 @@ fn build_inverted(
                 score: (score * 1000.0).clamp(0.0, u16::MAX as f32) as u16,
             })
             .collect();
-        vec.sort_by(|a, b| b.score.cmp(&a.score));
+        vec.sort_by_key(|b| std::cmp::Reverse(b.score));
         inverted.insert(token.clone(), vec);
     }
 
