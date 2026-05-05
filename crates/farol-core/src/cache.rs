@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use redb::{Database, TableDefinition};
+use redb::{Database, ReadableDatabase, TableDefinition};
 
 use crate::error::{FarolError, Result};
 

@@ -1,3 +1,12 @@
+# Release Pipeline
+#
+# Builds and publishes farol wheels to PyPI.
+# Triggers on version tag push (v*) or manually via workflow_dispatch.
+#
+# Usage:
+#   git tag v0.1.0
+#   git push origin v0.1.0
+
 name: release
 
 on:
@@ -5,108 +14,170 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  wheels:
-    name: wheels (${{ matrix.os }}, ${{ matrix.arch }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            arch: x86_64
-          - os: ubuntu-24.04-arm
-            arch: aarch64
-          - os: macos-13
-            arch: x86_64
-          - os: macos-14
-            arch: arm64
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION"
 
-      - uses: dtolnay/rust-toolchain@stable
+  build-linux-x86:
+    name: Build manylinux x86_64 cp${{ matrix.python }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: actions/setup-python@v5
+      - name: Build wheels
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
-          python-version: "3.12"
+          target: x86_64
+          args: --release --out dist -i python${{ matrix.python }}
+          manylinux: auto
+          sccache: true
 
-      - name: build wheels
-        uses: pypa/cibuildwheel@v2.21
-        env:
-          CIBW_ARCHS: ${{ matrix.arch }}
-          CIBW_BUILD: "cp311-* cp312-* cp313-*"
-          CIBW_BUILD_FRONTEND: "build"
-          CIBW_TEST_COMMAND: 'python -c "import farol; print(farol.version())" && farol --version'
-          CIBW_BEFORE_ALL_LINUX: "curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal"
-          CIBW_ENVIRONMENT_LINUX: 'PATH="$HOME/.cargo/bin:$PATH"'
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          CIBW_MANYLINUX_AARCH64_IMAGE: "manylinux2014"
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
-          path: wheelhouse/*.whl
+          name: farol-${{ needs.prepare.outputs.version }}-cp${{ matrix.python }}-manylinux-x86_64
+          path: dist/*.whl
 
-  sdist:
-    name: sdist
+  build-linux-arm:
+    name: Build manylinux aarch64 cp${{ matrix.python }}
+    needs: prepare
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          target: aarch64
+          args: --release --out dist -i python${{ matrix.python }}
+          manylinux: auto
+          sccache: true
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: farol-${{ needs.prepare.outputs.version }}-cp${{ matrix.python }}-manylinux-aarch64
+          path: dist/*.whl
+
+  build-macos:
+    name: Build macOS ${{ matrix.target }} cp${{ matrix.python }}
+    needs: prepare
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist -i python${{ matrix.python }}
+          sccache: true
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: farol-${{ needs.prepare.outputs.version }}-cp${{ matrix.python }}-macos-${{ matrix.target }}
+          path: dist/*.whl
+
+  build-sdist:
+    name: Build sdist
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
-          python-version: "3.12"
-      - name: build sdist
-        run: |
-          pip install --upgrade maturin
-          maturin sdist --out dist
-      - uses: actions/upload-artifact@v4
+          command: sdist
+          args: --out dist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sdist
+          name: farol-${{ needs.prepare.outputs.version }}-sdist
           path: dist/*.tar.gz
 
   publish:
-    name: publish to PyPI
-    needs: [wheels, sdist]
+    name: Publish to PyPI
+    needs: [prepare, build-linux-x86, build-linux-arm, build-macos, build-sdist]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: pypi
       url: https://pypi.org/p/farol
-    permissions:
-      id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          pattern: farol-${{ needs.prepare.outputs.version }}-*
           path: dist
           merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
 
   github-release:
-    name: github release
-    needs: [publish]
+    name: Create GitHub Release
+    needs: [prepare, publish]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
+    if: github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@v4
-        with:
+          pattern: farol-${{ needs.prepare.outputs.version }}-*
           path: dist
           merge-multiple: true
-      - name: create release
+
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
+            --title "farol v${{ needs.prepare.outputs.version }}" \
             --generate-notes \
             dist/*

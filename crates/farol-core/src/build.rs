@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use minijinja::{context, Environment};
+use minijinja::{Environment, context};
 
 use crate::{
     assets,
@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn builds_minimal_site() {
-        use crate::plugins::{core as builtins, ChainedHost};
+        use crate::plugins::{ChainedHost, core as builtins};
 
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();

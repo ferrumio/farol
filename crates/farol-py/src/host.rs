@@ -10,26 +10,26 @@ use std::path::Path;
 use farol_core::{Config, FarolError, FileTree, Page, PluginHost, Result};
 use pyo3::{
     prelude::*,
-    types::{PyDict, PyList},
+    types::{PyAny, PyDict, PyList},
 };
 use pythonize::{depythonize, pythonize};
 
 /// A [`PluginHost`] that dispatches to a Python `farol.PluginManager`.
 pub struct PythonPluginHost {
-    manager: PyObject,
+    manager: Py<PyAny>,
 }
 
 impl PythonPluginHost {
     /// Build from an existing Python object. The object must implement
     /// one method per hook (`on_config`, `on_page_markdown`, etc.) that
     /// returns `None` for "no change" or the transformed value otherwise.
-    pub fn new(manager: PyObject) -> Self {
+    pub fn new(manager: Py<PyAny>) -> Self {
         Self { manager }
     }
 }
 
 fn to_farol(err: PyErr, hook: &str) -> FarolError {
-    Python::with_gil(|py| err.print(py));
+    Python::attach(|py| err.print(py));
     FarolError::ConfigInvalid { message: format!("plugin hook `{hook}` failed: {err}") }
 }
 
@@ -39,7 +39,7 @@ impl PluginHost for PythonPluginHost {
     }
 
     fn plugins(&self) -> Vec<String> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.manager
                 .bind(py)
                 .call_method0("plugins")
@@ -49,7 +49,7 @@ impl PluginHost for PythonPluginHost {
     }
 
     fn on_config(&self, config: Config) -> Result<Config> {
-        Python::with_gil(|py| -> Result<Config> {
+        Python::attach(|py| -> Result<Config> {
             let cfg_py = pythonize(py, &config).map_err(|e| FarolError::ConfigInvalid {
                 message: format!("serialize config: {e}"),
             })?;
@@ -70,7 +70,7 @@ impl PluginHost for PythonPluginHost {
     }
 
     fn on_files(&self, files: FileTree, _config: &Config) -> Result<FileTree> {
-        Python::with_gil(|py| -> Result<FileTree> {
+        Python::attach(|py| -> Result<FileTree> {
             let paths: Vec<String> =
                 files.files.iter().map(|f| f.relative.to_string_lossy().into_owned()).collect();
             let list = PyList::new(py, paths).map_err(|e| to_farol(e, "on_files"))?;
@@ -85,7 +85,7 @@ impl PluginHost for PythonPluginHost {
     }
 
     fn on_page_markdown(&self, markdown: String, page: &Page, config: &Config) -> Result<String> {
-        Python::with_gil(|py| -> Result<String> {
+        Python::attach(|py| -> Result<String> {
             let kwargs = PyDict::new(py);
             kwargs.set_item("markdown", &markdown).map_err(|e| to_farol(e, "on_page_markdown"))?;
             let page_py = pythonize(py, page).map_err(|e| FarolError::ConfigInvalid {
@@ -110,7 +110,7 @@ impl PluginHost for PythonPluginHost {
     }
 
     fn on_page_html(&self, html: String, page: &Page, config: &Config) -> Result<String> {
-        Python::with_gil(|py| -> Result<String> {
+        Python::attach(|py| -> Result<String> {
             let kwargs = PyDict::new(py);
             kwargs.set_item("html", &html).map_err(|e| to_farol(e, "on_page_html"))?;
             let page_py = pythonize(py, page).map_err(|e| FarolError::ConfigInvalid {
@@ -135,7 +135,7 @@ impl PluginHost for PythonPluginHost {
     }
 
     fn on_post_build(&self, site_dir: &Path, config: &Config) -> Result<()> {
-        Python::with_gil(|py| -> Result<()> {
+        Python::attach(|py| -> Result<()> {
             let kwargs = PyDict::new(py);
             kwargs
                 .set_item("site_dir", site_dir.to_string_lossy().into_owned())

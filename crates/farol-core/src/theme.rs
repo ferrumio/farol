@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
-use include_dir::{include_dir, Dir};
-use minijinja::{path_loader, Environment};
+use include_dir::{Dir, include_dir};
+use minijinja::{Environment, path_loader};
 
 use crate::error::{FarolError, Result};
 

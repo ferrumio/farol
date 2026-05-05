@@ -14,8 +14,8 @@ default-members = [
 
 [workspace.package]
 version      = "0.0.1"
-edition      = "2021"
-rust-version = "1.75"
+edition      = "2024"
+rust-version = "1.85"
 authors      = ["ferrumio"]
 license      = "Apache-2.0"
 repository   = "https://github.com/ferrumio/farol"
@@ -25,34 +25,33 @@ readme       = "README.md"
 [workspace.dependencies]
 farol-core = { path = "crates/farol-core", version = "0.0.1" }
 
-clap               = { version = "4", features = ["derive"] }
-serde              = { version = "1", features = ["derive"] }
-serde_yaml         = "0.9"
-thiserror          = "1"
-miette             = { version = "7", features = ["fancy"] }
-tracing            = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-toml               = "0.8"
-ignore             = "0.4"
+clap               = { version = "4.6", features = ["derive"] }
+serde              = { version = "1.0.228", features = ["derive"] }
+serde_yaml         = "0.9.34"
+thiserror          = "2.0"
+miette             = { version = "7.6", features = ["fancy"] }
+tracing            = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+toml               = "1.1"
+ignore             = "0.4.25"
 markdown           = "1"
-minijinja          = { version = "2", features = ["loader"] }
-include_dir        = "0.7"
-sha2               = "0.10"
-percent-encoding   = "2"
-url                = "2"
-redb               = "2"
-bincode            = { version = "2", features = ["serde"] }
-rayon              = "1"
-syntect            = { version = "5", default-features = false, features = ["default-fancy"] }
+minijinja          = { version = "2.19", features = ["loader"] }
+include_dir        = "0.7.4"
+sha2               = "0.11"
+percent-encoding   = "2.3"
+url                = "2.5"
+redb               = "4"
+rayon              = "1.12"
+syntect            = { version = "5.3", default-features = false, features = ["default-fancy"] }
 two-face           = "0.5"
 tantivy            = "0.26"
-serde_json         = "1"
-image              = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
-base64             = "0.22"
-tokio              = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal", "net", "time", "fs"] }
-axum               = { version = "0.8", features = ["ws"] }
+serde_json         = "1.0.149"
+image              = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+base64             = "0.22.1"
+tokio              = { version = "1.52", features = ["rt-multi-thread", "macros", "sync", "signal", "net", "time", "fs"] }
+axum               = { version = "0.8.9", features = ["ws"] }
 notify             = "8"
-futures-util       = "0.3"
+futures-util       = "0.3.32"
 
 [profile.release]
 lto           = "thin"

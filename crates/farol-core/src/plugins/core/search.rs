@@ -8,8 +8,8 @@
 use std::sync::Mutex;
 
 use crate::{
-    search::{self, SearchEntry},
     Config, Page, PluginHost, Result,
+    search::{self, SearchEntry},
 };
 
 pub struct SearchPlugin {

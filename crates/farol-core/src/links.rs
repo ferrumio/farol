@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::url::{classify_link, resolve_internal, LinkKind};
+use crate::url::{LinkKind, classify_link, resolve_internal};
 
 /// A rewrite applied to the HTML of a page: `old_href -> new_href`.
 #[derive(Debug, Clone)]

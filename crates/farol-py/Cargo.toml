@@ -15,6 +15,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 farol-core = { workspace = true }
 farol-cli  = { path = "../farol-cli", version = "0.0.1" }
-pyo3       = { version = "0.23", features = ["extension-module", "abi3-py311", "serde"] }
+pyo3       = { version = "0.28", features = ["extension-module", "abi3-py311", "serde"] }
 serde_json = "1"
-pythonize  = "0.23"
+pythonize  = "0.28"

@@ -24,7 +24,7 @@ pub mod theme;
 pub mod toc;
 pub mod url;
 
-pub use build::{build, build_with, BuildOptions, BuildReport};
+pub use build::{BuildOptions, BuildReport, build, build_with};
 pub use cache::Cache;
 pub use config::{Config, DEFAULT_CONFIG_FILENAME};
 pub use error::{FarolError, Result};

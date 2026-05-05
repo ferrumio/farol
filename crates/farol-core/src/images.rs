@@ -18,7 +18,7 @@ use std::{
 };
 
 use base64::Engine;
-use image::{imageops::FilterType, ImageReader};
+use image::{ImageReader, imageops::FilterType};
 use sha2::{Digest, Sha256};
 
 use crate::error::{FarolError, Result};

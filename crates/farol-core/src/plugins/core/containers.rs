@@ -197,8 +197,7 @@ mod tests {
 
     #[test]
     fn files_wraps_sections() {
-        let md =
-            "::: files\n#### config.toml\n```toml\nkey = 1\n```\n\n#### main.py\n```python\nprint(1)\n```\n:::\n";
+        let md = "::: files\n#### config.toml\n```toml\nkey = 1\n```\n\n#### main.py\n```python\nprint(1)\n```\n:::\n";
         let out = transform(md);
         assert!(out.contains("farol-files"));
         assert!(out.contains("file-label"));

@@ -17,11 +17,11 @@ use std::{collections::HashMap, path::Path};
 
 use serde::{Deserialize, Serialize};
 use tantivy::{
+    Index, IndexReader, ReloadPolicy, TantivyDocument, Term,
     collector::TopDocs,
     doc,
-    schema::{Field, Schema, Value, STORED, STRING, TEXT},
+    schema::{Field, STORED, STRING, Schema, TEXT, Value},
     tokenizer::{LowerCaser, SimpleTokenizer, Stemmer, TextAnalyzer, TokenizerManager},
-    Index, IndexReader, ReloadPolicy, TantivyDocument, Term,
 };
 
 use crate::error::{FarolError, Result};
