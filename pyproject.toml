@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name            = "farol"
-version         = "0.0.1"
+version         = "0.0.2"
 description     = "Fast, plugin-first documentation generator. Rust core, Python-friendly."
 readme          = "README.md"
 license         = { text = "Apache-2.0" }
