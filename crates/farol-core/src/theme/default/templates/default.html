@@ -1,35 +1,49 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ page.title }} - {{ config.site_name }}</title>
+  <title>{{ page.title }} — {{ config.site_name }}</title>
+  {% if config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  {% if config.site_url %}<meta property="og:url" content="{{ config.site_url }}{{ page.url }}">{% endif %}
   <link rel="stylesheet" href="/assets/base.css">
   <script src="/assets/farol.js" defer></script>
   <script src="/assets/search.js" defer></script>
-  {% if config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
 </head>
 <body>
   {% include "partials/header.html" %}
-  <main class="content">
-    <article>
-      {{ page.body_html | safe }}
-    </article>
-    {% if page.toc %}
-    <aside class="toc">
-      <h4>On this page</h4>
-      <ul>
-        {% for entry in page.toc %}
-        <li><a href="#{{ entry.slug }}">{{ entry.title }}</a>
-          {% if entry.children %}
-          <ul>{% for c in entry.children %}<li><a href="#{{ c.slug }}">{{ c.title }}</a></li>{% endfor %}</ul>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-    </aside>
-    {% endif %}
-  </main>
+
+  <div class="layout">
+    {% include "partials/sidebar.html" %}
+
+    <main class="content" id="content">
+      <article class="prose">
+        {{ page.body_html | safe }}
+      </article>
+
+      {% if page.toc %}
+      <aside class="toc" aria-label="On this page">
+        <div class="toc-title">On this page</div>
+        <ul>
+          {% for entry in page.toc %}
+          <li><a href="#{{ entry.slug }}">{{ entry.title }}</a>
+            {% if entry.children %}
+            <ul>
+              {% for c in entry.children %}
+              <li><a href="#{{ c.slug }}">{{ c.title }}</a></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </aside>
+      {% endif %}
+    </main>
+  </div>
+
   {% include "partials/footer.html" %}
   {% include "partials/search.html" %}
 </body>

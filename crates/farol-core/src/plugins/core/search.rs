@@ -111,7 +111,11 @@ fn drop_scripted(html: &str) -> String {
         let style_at = lower[cursor..].find("<style").map(|i| (cursor + i, "</style>"));
         let next = match (script_at, style_at) {
             (Some(s), Some(t)) => {
-                if s.0 <= t.0 { Some(s) } else { Some(t) }
+                if s.0 <= t.0 {
+                    Some(s)
+                } else {
+                    Some(t)
+                }
             }
             (s, t) => s.or(t),
         };
@@ -149,6 +153,7 @@ mod tests {
             frontmatter: Frontmatter::new(),
             body_html: String::new(),
             toc: Vec::new(),
+            layout: "default".to_string(),
         }
     }
 
