@@ -5,7 +5,7 @@
 //! and copy the link. The slug is computed from the heading text using the
 //! same function as the TOC so anchors stay in sync.
 
-use crate::{slug::slugify, Config, Page, PluginHost, Result};
+use crate::{Config, Page, PluginHost, Result, slug::slugify};
 
 pub struct AnchorLinksPlugin;
 

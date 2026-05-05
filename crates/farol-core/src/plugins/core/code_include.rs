@@ -256,11 +256,7 @@ fn extract_region(content: &str, name: &str, comment_prefixes: &[&'static str]) 
         out.push_str(line);
         out.push('\n');
     }
-    if in_region {
-        Some(out)
-    } else {
-        None
-    }
+    if in_region { Some(out) } else { None }
 }
 
 fn is_region_marker(line: &str, prefixes: &[&'static str]) -> bool {

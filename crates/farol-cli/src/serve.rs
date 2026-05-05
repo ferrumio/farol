@@ -6,21 +6,21 @@ use std::{
 };
 
 use axum::{
+    Router,
     body::Body,
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{header, StatusCode, Uri},
+    http::{StatusCode, Uri, header},
     response::{IntoResponse, Response},
     routing::get,
-    Router,
 };
-use farol_core::{build, BuildOptions, Config, PluginHost};
+use farol_core::{BuildOptions, Config, PluginHost, build};
 use futures_util::stream::StreamExt;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::{
-    sync::{broadcast, Mutex},
+    sync::{Mutex, broadcast},
     time::sleep,
 };
 

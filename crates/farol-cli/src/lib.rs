@@ -12,8 +12,8 @@ use std::{
 
 use clap::{Parser, Subcommand};
 use farol_core::{
-    build, plugins, scaffold, BuildOptions, Cache, ChainedHost, Config, NoOpHost, PluginHost,
-    DEFAULT_CONFIG_FILENAME,
+    BuildOptions, Cache, ChainedHost, Config, DEFAULT_CONFIG_FILENAME, NoOpHost, PluginHost, build,
+    plugins, scaffold,
 };
 use tracing_subscriber::EnvFilter;
 

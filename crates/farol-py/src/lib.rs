@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use farol_core::PluginHost;
 use host::PythonPluginHost;
-use pyo3::{exceptions::PyRuntimeError, prelude::*};
+use pyo3::{exceptions::PyRuntimeError, prelude::*, types::PyAny};
 
 #[pyfunction]
 fn version() -> &'static str {
@@ -23,13 +23,13 @@ fn version() -> &'static str {
 /// `manager` must implement the hook dispatch API (see `farol.PluginManager`).
 #[pyfunction]
 #[pyo3(signature = (argv, manager))]
-fn run_cli(argv: Vec<String>, manager: PyObject) -> PyResult<()> {
+fn run_cli(argv: Vec<String>, manager: Py<PyAny>) -> PyResult<()> {
     // `run_cli` hands the user's Python-side PluginManager to the CLI as the
     // "user host". The CLI layers builtin plugins on top inside each command
     // (after loading the site config), so `[plugins] enabled/disabled` is
     // honored uniformly.
     let host: Arc<dyn PluginHost> = Arc::new(PythonPluginHost::new(manager));
-    let result = Python::with_gil(|py| py.allow_threads(|| farol_cli::run_with_argv(argv, host)));
+    let result = Python::attach(|py| py.detach(|| farol_cli::run_with_argv(argv, host)));
     result.map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))
 }
 
@@ -39,7 +39,7 @@ fn run_cli(argv: Vec<String>, manager: PyObject) -> PyResult<()> {
 /// Returns a dict with `pages`, `assets`, `broken_links`.
 #[pyfunction]
 #[pyo3(signature = (config_path, manager=None))]
-fn build(py: Python<'_>, config_path: String, manager: Option<PyObject>) -> PyResult<PyObject> {
+fn build(py: Python<'_>, config_path: String, manager: Option<Py<PyAny>>) -> PyResult<Py<PyAny>> {
     use farol_core::Config;
     use std::path::PathBuf;
 
@@ -50,7 +50,7 @@ fn build(py: Python<'_>, config_path: String, manager: Option<PyObject>) -> PyRe
         Config::load(&config_path).map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))?;
 
     let report = py
-        .allow_threads(|| -> farol_core::Result<farol_core::BuildReport> {
+        .detach(|| -> farol_core::Result<farol_core::BuildReport> {
             let user: Arc<dyn PluginHost> = match manager {
                 Some(m) => Arc::new(PythonPluginHost::new(m)),
                 None => Arc::new(farol_core::NoOpHost),
@@ -69,15 +69,15 @@ fn build(py: Python<'_>, config_path: String, manager: Option<PyObject>) -> PyRe
     dict.set_item("pages", report.pages)?;
     dict.set_item("assets", report.assets)?;
     dict.set_item("broken_links", report.broken_links.len())?;
-    Ok(dict.into())
+    Ok(dict.into_any().unbind())
 }
 
 /// Expose the NoOpHost (useful when plugins are not desired).
 #[pyfunction]
-fn null_host() -> PyObject {
+fn null_host() -> Py<PyAny> {
     // A Python-side PluginManager-compatible object that does nothing. Built
     // in pure Python, referenced through farol.PluginManager.null().
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let module = py.import("farol").unwrap();
         module.getattr("PluginManager").unwrap().call_method0("null").unwrap().unbind()
     })

@@ -1,8 +1,8 @@
 use std::{collections::HashSet, path::Path};
 
 use markdown::{
-    mdast::{Heading, Node},
     Constructs, Options, ParseOptions,
+    mdast::{Heading, Node},
 };
 
 use crate::{

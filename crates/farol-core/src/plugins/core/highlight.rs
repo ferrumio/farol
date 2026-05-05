@@ -24,12 +24,12 @@ use std::path::Path;
 
 use syntect::{
     highlighting::{Style, Theme, ThemeSet},
-    html::{styled_line_to_highlighted_html, IncludeBackground},
+    html::{IncludeBackground, styled_line_to_highlighted_html},
     parsing::{SyntaxReference, SyntaxSet},
     util::LinesWithEndings,
 };
 
-use super::code_include::{read_include, CodeBlockAttrs};
+use super::code_include::{CodeBlockAttrs, read_include};
 use crate::{Config, Page, PluginHost, Result};
 
 pub struct HighlightPlugin {

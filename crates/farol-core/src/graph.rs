@@ -1,7 +1,7 @@
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -163,11 +163,7 @@ impl Report {
 
     pub fn hit_rate(&self) -> f64 {
         let total = self.total_nodes();
-        if total == 0 {
-            0.0
-        } else {
-            self.cache_hits as f64 / total as f64
-        }
+        if total == 0 { 0.0 } else { self.cache_hits as f64 / total as f64 }
     }
 }
 
