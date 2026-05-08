@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version      = "0.0.2"
+version      = "0.0.3"
 edition      = "2024"
 rust-version = "1.85"
 authors      = ["ferrumio"]
@@ -23,7 +23,7 @@ homepage     = "https://github.com/ferrumio/farol"
 readme       = "README.md"
 
 [workspace.dependencies]
-farol-core = { path = "crates/farol-core", version = "0.0.2" }
+farol-core = { path = "crates/farol-core", version = "0.0.3" }
 
 clap               = { version = "4.6", features = ["derive"] }
 serde              = { version = "1.0.228", features = ["derive"] }
