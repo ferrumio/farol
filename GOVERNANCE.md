@@ -2,9 +2,7 @@
 
 ## Decision Model
 
-Farol currently operates under a **BDFL (Benevolent Dictator For Life)** model. All final decisions rest with the project maintainer.
-
-As the project grows, this may evolve into a Technical Steering Committee (TSC) model with multiple maintainers having merge authority over specific areas.
+Farol is maintained by a single person today. Final decisions on direction, features, and merges are made by the maintainer listed in [MAINTAINERS.md](MAINTAINERS.md). This may change as the project grows and more contributors join.
 
 ## How Decisions Are Made
 
