@@ -1,9 +1,5 @@
 # Governance
 
-## Decision Model
-
-Farol is maintained by a single person today. Final decisions on direction, features, and merges are made by the maintainer listed in [MAINTAINERS.md](MAINTAINERS.md). This may change as the project grows and more contributors join.
-
 ## How Decisions Are Made
 
 - **Small changes** (bug fixes, minor improvements): merged by any maintainer after CI passes.
