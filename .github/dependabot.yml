@@ -1,0 +1,44 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "deps(rust)"
+    labels:
+      - "type:chore"
+      - "lang:rust"
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "deps(python)"
+    labels:
+      - "type:chore"
+      - "lang:python"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "deps(actions)"
+    labels:
+      - "type:chore"
+      - "area:ci"
