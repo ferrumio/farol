@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "farol-cli"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "axum",
  "clap",
@@ -650,7 +650,7 @@ dependencies = [
 
 [[package]]
 name = "farol-core"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "base64",
  "ignore",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "farol-py"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "farol-cli",
  "farol-core",
