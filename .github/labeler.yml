@@ -1,0 +1,56 @@
+"area:core":
+  - changed-files:
+      - any-glob-to-any-file: "crates/farol-core/**"
+
+"area:render":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/farol-core/src/build.rs"
+          - "crates/farol-core/src/markdown.rs"
+          - "crates/farol-core/src/plugins/**"
+
+"area:theme":
+  - changed-files:
+      - any-glob-to-any-file: "crates/farol-core/src/theme/**"
+
+"area:dev-server":
+  - changed-files:
+      - any-glob-to-any-file: "crates/farol-cli/src/serve.rs"
+
+"area:graph-cache":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/farol-core/src/cache.rs"
+          - "crates/farol-core/src/graph.rs"
+
+"area:plugin-api":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/farol-core/src/plugins/**"
+          - "python/farol/**"
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+
+"lang:rust":
+  - changed-files:
+      - any-glob-to-any-file: "**/*.rs"
+
+"lang:python":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.py"
+          - "pyproject.toml"
+
+"lang:css":
+  - changed-files:
+      - any-glob-to-any-file: "**/*.css"
+
+"lang:js":
+  - changed-files:
+      - any-glob-to-any-file: "**/*.js"
+
+"lang:html":
+  - changed-files:
+      - any-glob-to-any-file: "**/*.html"
