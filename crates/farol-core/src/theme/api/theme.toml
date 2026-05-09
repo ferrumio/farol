@@ -1,0 +1,13 @@
+[theme]
+name = "api"
+version = "0.1.0"
+min_farol_version = "0.0.3"
+description = "Two-panel API reference theme with continuous scroll and heavy anchors"
+
+[theme.layouts]
+supported = ["default"]
+
+[theme.assets]
+shared_js = true
+css = ["api.css"]
+js = []

@@ -1,0 +1,13 @@
+[theme]
+name = "book"
+version = "0.1.0"
+min_farol_version = "0.0.3"
+description = "Linear book-style theme with strong prev/next navigation"
+
+[theme.layouts]
+supported = ["default"]
+
+[theme.assets]
+shared_js = true
+css = ["book.css"]
+js = []

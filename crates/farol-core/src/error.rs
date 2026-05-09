@@ -33,6 +33,15 @@ pub enum FarolError {
     #[error("cache error: {message}")]
     #[diagnostic(code(farol::cache))]
     Cache { message: String },
+
+    #[error("theme `{name}` not found")]
+    #[diagnostic(
+        code(farol::theme::not_found),
+        help(
+            "available built-in themes: default, api, book. Or provide a filesystem path via theme.path"
+        )
+    )]
+    ThemeNotFound { name: String },
 }
 
 pub type Result<T> = std::result::Result<T, FarolError>;

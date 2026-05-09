@@ -1,0 +1,22 @@
+{% macro render_nav_flat(nodes, current_url) %}
+<ul class="api-nav-list">
+  {% for node in nodes %}
+  <li class="api-nav-item{% if node.url == current_url %} active{% endif %}">
+    {% if node.url %}
+      <a class="api-nav-link{% if node.url == current_url %} active{% endif %}" href="{{ node.url }}">{{ node.title }}</a>
+    {% else %}
+      <span class="api-nav-group">{{ node.title }}</span>
+    {% endif %}
+    {% if node.children %}
+      {{ render_nav_flat(node.children, current_url) }}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+<aside class="api-nav" aria-label="API navigation">
+  <nav class="api-nav-inner">
+    {{ render_nav_flat(nav, page.url) }}
+  </nav>
+</aside>

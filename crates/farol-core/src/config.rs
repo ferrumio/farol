@@ -48,6 +48,8 @@ pub struct ThemeConfig {
     #[serde(default = "default_theme_name")]
     pub name: String,
     #[serde(default)]
+    pub path: Option<PathBuf>,
+    #[serde(default)]
     pub palette: Option<String>,
     #[serde(default)]
     pub primary: Option<String>,
@@ -82,7 +84,7 @@ impl PluginsConfig {
 
 impl Default for ThemeConfig {
     fn default() -> Self {
-        Self { name: default_theme_name(), palette: None, primary: None, accent: None }
+        Self { name: default_theme_name(), path: None, palette: None, primary: None, accent: None }
     }
 }
 
