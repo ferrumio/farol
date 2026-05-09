@@ -163,8 +163,11 @@ pub fn build_with(
     }
 
     // --- graph: render + write per page -----------------------------------
+    let resolved_theme = theme::resolve_from_config(&config.theme, project_root)?;
+    resolved_theme.validate_layouts(&pages)?;
+
     let overrides = project_root.join("overrides");
-    let env = theme::build_env(Some(&overrides))?;
+    let env = theme::build_env(&resolved_theme, Some(&overrides))?;
     let env = Arc::new(env);
 
     // Build the site-wide nav tree once; every render node reads the same Arc.
@@ -200,7 +203,7 @@ pub fn build_with(
     let graph_report = graph.execute(cache.as_ref())?;
 
     // --- post-graph: theme assets, non-image assets ------------------------
-    theme::copy_assets(&site_dir)?;
+    theme::copy_assets(&resolved_theme, &site_dir)?;
     let mut asset_count = image_index.len();
     for file in tree.files.iter().filter(|f| f.kind == FileKind::Asset) {
         if images::is_image(&file.path) {

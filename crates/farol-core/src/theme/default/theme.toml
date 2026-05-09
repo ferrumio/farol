@@ -1,0 +1,13 @@
+[theme]
+name = "default"
+version = "0.1.0"
+min_farol_version = "0.0.3"
+description = "Classic sidebar documentation theme with hierarchical navigation and TOC"
+
+[theme.layouts]
+supported = ["default", "landing"]
+
+[theme.assets]
+shared_js = true
+css = ["base.css"]
+js = []

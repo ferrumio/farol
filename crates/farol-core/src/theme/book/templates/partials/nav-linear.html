@@ -1,0 +1,24 @@
+{% macro render_chapters(nodes, current_url, counter) %}
+<ol class="chapter-list">
+  {% for node in nodes %}
+  <li class="chapter-item{% if node.url == current_url %} active{% endif %}">
+    {% if node.url %}
+      <a class="chapter-link{% if node.url == current_url %} active{% endif %}" href="{{ node.url }}">{{ node.title }}</a>
+    {% else %}
+      <span class="chapter-section">{{ node.title }}</span>
+    {% endif %}
+    {% if node.children %}
+      {{ render_chapters(node.children, current_url, counter + 1) }}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}
+
+<aside class="book-sidebar" data-sidebar aria-label="Chapters">
+  <nav class="book-sidebar-nav">
+    {{ render_chapters(nav, page.url, 0) }}
+  </nav>
+</aside>
+
+<div class="sidebar-backdrop" data-sidebar-backdrop></div>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }} — {{ config.site_name }}</title>
+  {% if config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  {% if config.site_url %}<meta property="og:url" content="{{ config.site_url }}{{ page.url }}">{% endif %}
+  <link rel="stylesheet" href="/assets/api.css">
+  <script src="/assets/farol.js" defer></script>
+  <script src="/assets/search.js" defer></script>
+</head>
+<body>
+  {% include "partials/header.html" %}
+
+  <div class="api-layout">
+    {% include "partials/nav-panel.html" %}
+
+    <main class="api-content" id="content">
+      <article class="prose">
+        {{ page.body_html | safe }}
+      </article>
+    </main>
+  </div>
+
+  {% include "partials/footer.html" %}
+  {% include "partials/search.html" %}
+</body>
+</html>
