@@ -1,0 +1,7 @@
+site_name = "farol"
+site_url = "https://ferrumio.github.io/farol"
+site_description = "Fast, plugin-first documentation generator. Rust core. Python-friendly."
+repo_url = "https://github.com/ferrumio/farol"
+
+[theme]
+name = "default"
