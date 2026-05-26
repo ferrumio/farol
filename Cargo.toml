@@ -35,7 +35,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 toml               = "1.1"
 ignore             = "0.4.25"
 markdown           = "1"
-minijinja          = { version = "2.19", features = ["loader"] }
+minijinja          = { version = "2.20", features = ["loader"] }
 include_dir        = "0.7.4"
 sha2               = "0.11"
 percent-encoding   = "2.3"
@@ -45,7 +45,7 @@ rayon              = "1.12"
 syntect            = { version = "5.3", default-features = false, features = ["default-fancy"] }
 two-face           = "0.5"
 tantivy            = "0.26"
-serde_json         = "1.0.149"
+serde_json         = "1.0.150"
 image              = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 base64             = "0.22.1"
 tokio              = { version = "1.52", features = ["rt-multi-thread", "macros", "sync", "signal", "net", "time", "fs"] }
