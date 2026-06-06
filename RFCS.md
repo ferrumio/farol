@@ -19,29 +19,9 @@ Significant changes to farol go through the RFC (Request for Comments) process.
 
 ## Template
 
-```markdown
-# RFC NNNN: Title
-
-## Summary
-
-One paragraph explanation.
-
-## Motivation
-
-Why are we doing this? What problem does it solve?
-
-## Design
-
-Detailed design. Include examples, API sketches, directory structures.
-
-## Alternatives Considered
-
-What other approaches were evaluated and why were they rejected?
-
-## Unresolved Questions
-
-What remains to be figured out during implementation?
-```
+Copy [`rfcs/0000-template.md`](rfcs/0000-template.md) to `rfcs/NNNN-title.md`
+and fill in each section. Every RFC answers, at minimum: Summary, Motivation,
+Detailed design, Drawbacks, Alternatives, and Unresolved questions.
 
 ## Directory
 
