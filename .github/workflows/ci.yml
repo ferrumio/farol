@@ -9,6 +9,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "pyproject.toml"
+      - "deny.toml"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "pyproject.toml"
+      - "deny.toml"
       - ".github/workflows/ci.yml"
 
 concurrency:
@@ -56,6 +58,15 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
 
   build:
     name: build wheel (${{ matrix.os }}, py${{ matrix.python }})
