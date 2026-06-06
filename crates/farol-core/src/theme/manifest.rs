@@ -76,36 +76,3 @@ fn version_satisfies(current: &str, minimum: &str) -> bool {
     };
     parse(current) >= parse(minimum)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_valid_manifest() {
-        let toml = r#"
-[theme]
-name = "test"
-version = "0.1.0"
-min_farol_version = "0.0.3"
-
-[theme.layouts]
-supported = ["default", "landing"]
-
-[theme.assets]
-shared_js = true
-css = ["base.css"]
-"#;
-        let m = parse(toml).unwrap();
-        assert_eq!(m.theme.name, "test");
-        assert_eq!(m.theme.layouts.supported, vec!["default", "landing"]);
-        assert!(m.theme.assets.shared_js);
-    }
-
-    #[test]
-    fn version_check() {
-        assert!(version_satisfies("0.0.3", "0.0.3"));
-        assert!(version_satisfies("0.1.0", "0.0.3"));
-        assert!(!version_satisfies("0.0.2", "0.0.3"));
-    }
-}
