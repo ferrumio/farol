@@ -1,0 +1,36 @@
+name: bench
+
+# Benchmarks are noisy on shared CI runners, so they don't gate PRs. We run
+# them on a schedule (and on demand) to track the trend over time. A future
+# follow-up can wire regression alerts; for now this just establishes and
+# records a baseline.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    name: criterion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run benchmarks
+        run: cargo bench -p farol-core -- --output-format bencher | tee bench-output.txt
+      - name: upload criterion reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-report
+          path: |
+            target/criterion
+            bench-output.txt
+          retention-days: 30
