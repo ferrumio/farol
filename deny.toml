@@ -1,0 +1,69 @@
+# cargo-deny configuration.
+#
+# Starts permissive and tightens over time (see issue #39). Run locally with:
+#   cargo install cargo-deny
+#   cargo deny check
+#
+# https://embarkstudios.github.io/cargo-deny/
+
+[graph]
+# Check the platforms we actually ship wheels for. Keeps the dep graph
+# focused and avoids flagging crates only pulled in for exotic targets.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+all-features = true
+
+[advisories]
+version = 2
+# Fail on any known CVE. This is the same ground rustsec/audit-check covers,
+# but cargo-deny also checks yanked crates and unmaintained advisories.
+yanked = "deny"
+ignore = [
+    # Both pulled in transitively via `syntect` (the syntax-highlight engine).
+    # They are unmaintained advisories, not active CVEs, and migrating to
+    # tree-sitter (#17) drops `syntect` and removes both. Revisit then.
+    "RUSTSEC-2024-0320", # yaml-rust unmaintained
+    "RUSTSEC-2025-0141", # bincode unmaintained
+]
+
+[licenses]
+version = 2
+# Permissive licenses present in the current tree. farol is Apache-2.0, so we
+# only pull in licenses compatible with redistribution under Apache-2.0.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unlicense",
+    "CC0-1.0",
+    "0BSD",
+    "BSL-1.0",
+    "MPL-2.0",
+]
+# Crates whose only acceptable license needs confirming get listed here with a
+# reason. Empty for now: every dependency resolves to an allowed license.
+confidence-threshold = 0.8
+exceptions = []
+
+[bans]
+# Start lenient on duplicates: warn so we can see the noise without blocking
+# CI, then tighten to "deny" with skip entries once the tree is deduped.
+multiple-versions = "warn"
+wildcards = "deny"
+# Crates we never want pulled in. Empty for now.
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
