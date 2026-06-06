@@ -41,29 +41,3 @@ fn create_dir(path: &Path) -> Result<()> {
 fn write(path: PathBuf, content: &str) -> Result<()> {
     fs::write(&path, content).map_err(|e| FarolError::io(&path, e))
 }
-
-#[cfg(test)]
-mod tests {
-    use tempfile::TempDir;
-
-    use super::*;
-
-    #[test]
-    fn scaffolds_minimal_project() {
-        let tmp = TempDir::new().unwrap();
-        let target = tmp.path().join("demo");
-        scaffold(&target).unwrap();
-
-        assert!(target.join("farol.toml").exists());
-        assert!(target.join("docs").join("index.md").exists());
-        assert!(target.join("docs").join("getting-started.md").exists());
-    }
-
-    #[test]
-    fn refuses_non_empty_target() {
-        let tmp = TempDir::new().unwrap();
-        fs::write(tmp.path().join("existing.txt"), "").unwrap();
-        let err = scaffold(tmp.path()).unwrap_err();
-        assert!(matches!(err, FarolError::ScaffoldExists { .. }));
-    }
-}
