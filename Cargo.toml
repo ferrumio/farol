@@ -52,7 +52,7 @@ tokio              = { version = "1.52", features = ["rt-multi-thread", "macros"
 axum               = { version = "0.8.9", features = ["ws"] }
 notify             = "8"
 futures-util       = "0.3.32"
-criterion          = { version = "0.7", features = ["html_reports"] }
+criterion          = { version = "0.8", features = ["html_reports"] }
 
 [profile.release]
 lto           = "thin"
